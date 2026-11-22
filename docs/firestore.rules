@@ -1,0 +1,41 @@
+rules_version = '2';
+// AOMAGA MES v45 - BẢN SOẠN SẴN, CHƯA ÁP DỤNG.
+// Chỉ dán vào Firebase Console > Firestore > Rules sau khi làm đủ các bước trong docs/HUONG_DAN_GIAI_DOAN_3.md.
+// Quy tắc tương đương cổng ghi dữ liệu phía trình duyệt (core/policy.js: amgCheckWrite).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Hồ sơ người dùng đang đăng nhập: users/{uid} phải có trường role ("admin" | "employee") và team.
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return signedIn() && me().role == 'admin'; }
+
+    match /users/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+    match /auditLog/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if isAdmin();
+    }
+    match /certificates/{id} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && id != '_folders_meta';
+      allow write: if isAdmin();
+    }
+    // v45: phân hệ mới. Quyền chi tiết theo chức vụ do ứng dụng kiểm tra (core/policy.js);
+    // rules chỉ chặn người chưa đăng nhập và việc xóa/đổi log. Xóa chỉ quản trị.
+    match /{col}/{id} {
+      allow read: if signedIn() && col in ['lots','stockMoves','inspections','ncr','checklists','maintenance','plans','handovers','training','overtime','documents','machineProfiles'];
+      allow create, update: if signedIn() && col in ['lots','stockMoves','inspections','ncr','checklists','maintenance','plans','handovers','training','overtime','documents','machineProfiles'];
+      allow delete: if isAdmin() && col in ['lots','stockMoves','inspections','ncr','checklists','maintenance','plans','handovers','training','overtime','documents','machineProfiles'];
+    }
+    match /{col}/{id} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && col in ['orders','machines','staff','scrap','attendance','productionRuns','productionEntries'];
+      allow delete: if isAdmin() && col in ['orders','machines','staff','scrap','attendance','productionRuns','productionEntries']
+                    || signedIn() && col == 'attendance';
+    }
+  }
+}

@@ -1,0 +1,24 @@
+const {load}=require('./harness');const fs=require('fs');
+const t=load({storage:{amg_mes_offline_db_v1:fs.readFileSync('/tmp/db.json','utf8')}});
+const A=async c=>await t.run('(async()=>{'+c+'})()');const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+ t.run('window.__AMG_USER={username:"admin",role:"admin",fullName:"Q"}');
+ const get=async col=>JSON.parse(await A(`const a=[];await new Promise(r=>{db.collection("${col}").onSnapshot(s=>{s.docs.forEach(d=>a.push(Object.assign({id:d.id},d.data())));r()})});return JSON.stringify(a)`));
+ t.w.__P={orders:await get('orders'),machines:await get('machines'),runs:await get('productionRuns'),entries:await get('productionEntries'),audit:await get('auditLog')};
+ t.run(`(()=>{const P=window.__P;const root=document.createElement('div');document.body.appendChild(root);window.__root=ReactDOM.createRoot(root);window.__el=root;
+  window.__root.render(React.createElement(DialogProvider,null,React.createElement(CompletedOrdersPage,{orders:P.orders,runs:P.runs,entries:P.entries,auditLog:P.audit,extra:{},scrap:[],currentUser:{username:'admin',role:'admin'}})));})()`);
+ await sleep(150);
+ const rows=[...t.w.__el.querySelectorAll('tbody tr')].map(r=>r.textContent.slice(0,60));
+ console.log('Dòng trong bảng hoàn thành:',rows.length, rows.map(x=>x.slice(0,40)));
+ const full=t.w.__el.textContent;
+ console.log('Panel chờ xác nhận có đơn cũ đủ SL:', full.includes('Chờ xác nhận hoàn thành'), '| ORD-T2 trong trang:', full.includes('ORD-T2'));
+ const legacyDone=t.run('window.__P.orders.filter(o=>amgLegacyDoneCandidate(o)).length');
+ console.log('Đơn cũ đủ SL (chỉ nằm ở khung chờ, không tự chuyển):',legacyDone,'| đơn cũ có status completed:',t.run('window.__P.orders.filter(o=>!o.routing&&o.status==="completed").length'));
+ t.run('window.__root.unmount()');
+ t.run(`(()=>{const P=window.__P;const root=document.createElement('div');document.body.appendChild(root);window.__root=ReactDOM.createRoot(root);
+  window.__root.render(React.createElement(TVWall,{machines:P.machines,runs:P.runs,orders:P.orders,onClose(){}}));})()`);
+ await sleep(150);
+ const b=t.w.document.body.textContent;
+ console.log('TV: tiêu đề',b.includes('THẺ MÁY SẢN XUẤT'),'| có KT-01',b.includes('KT-01'),'| CHƯA PHÂN CÔNG',b.includes('CHƯA PHÂN CÔNG'));
+ process.exit(0);
+})();
