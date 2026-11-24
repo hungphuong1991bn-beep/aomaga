@@ -1,4 +1,24 @@
-/* ===================== LAYOUT: SIDEBAR + TOPBAR ===================== */
+/* ===================== LAYOUT: SIDEBAR + TOPBAR (v49) =====================
+   Sidebar: logo cố định phía trên · danh sách menu (CHỈ vùng này cuộn) · nút thu gọn cố định phía dưới.
+   Menu được nhóm theo NAV_GROUPS; chỉ hiện những mục thật sự có trong NAV_ITEMS mà người dùng có quyền xem.
+   Cuộn độc lập: .mes-sb-nav { overflow-y:auto; min-height:0; overscroll-behavior:contain } nằm trong khung flex cột;
+   vùng nội dung (.mes-content-scroll) là một khối anh em riêng nên lăn chuột trên Sidebar không thể làm nội dung cuộn theo. */
+const AMG_NAV_ORDER = ["dashboard", "orders", "completed", "machines", "ops", "downtime", "qc", "inspect", "trace", "certificates", "warehouse", "staff", "training", "reports", "reports2", "maintenance", "docs", "perms", "admin"];
+function amgNavVisible(currentUser, role) {
+  return NAV_ITEMS.filter(n => n.roles.includes(role) && (!n.mod || amgIsPower(currentUser) || amgCan(currentUser, "v", n.mod)));
+}
+// Danh sách nhóm đã lọc quyền, theo thứ tự cố định (dùng cho Sidebar và kiểm thử)
+function amgNavGroups(currentUser, role) {
+  const vis = amgNavVisible(currentUser, role);
+  const rank = k => { const i = AMG_NAV_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+  return NAV_GROUPS.map(g => ({ key: g.key, label: g.label, items: vis.filter(n => n.group === g.key).sort((a, b) => rank(a.key) - rank(b.key)) })).filter(g => g.items.length > 0);
+}
+function amgNavMeta(tabKey) {
+  const it = NAV_ITEMS.find(n => n.key === tabKey);
+  const g = it && NAV_GROUPS.find(x => x.key === it.group);
+  return { label: it ? it.label : "", group: g ? g.label : "" };
+}
+
 function Sidebar({
   active,
   onChange,
@@ -9,170 +29,66 @@ function Sidebar({
   mobileOpen,
   onCloseMobile
 }) {
-  const SB_BG = COLORS.sidebarBg;
-  const SB_BG2 = COLORS.sidebarBg2;
-  const SB_BORDER = "rgba(255,255,255,0.16)";
-  const SB_TEXT = "#FFFFFF";
-  const SB_TEXT_DIM = "rgba(255,255,255,0.72)";
-  return /*#__PURE__*/React.createElement("div", {
-    className: "mes-sidebar" + (mobileOpen ? " mes-sidebar--open" : ""),
-    style: {
-      width: collapsed ? 64 : 232,
-      flexShrink: 0,
-      background: `linear-gradient(190deg, ${SB_BG}, ${SB_BG2})`,
-      display: "flex",
-      flexDirection: "column",
-      height: "100vh",
-      position: "sticky",
-      top: 0,
-      transition: "width .18s ease",
-      boxShadow: "2px 0 18px rgba(7,26,49,.35)"
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      padding: collapsed ? "18px 10px" : "20px 16px",
-      minHeight: 64
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 38,
-      height: 38,
-      borderRadius: 10,
-      background: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-      boxShadow: "0 2px 6px rgba(0,0,0,.18)",
-      overflow: "hidden"
-    }
-  }, /*#__PURE__*/React.createElement("img", {
-    src: LOGO_DATA_URI,
-    alt: "Logo",
-    style: {
-      width: "100%",
-      height: "100%",
-      objectFit: "contain"
-    }
-  })), !collapsed && /*#__PURE__*/React.createElement("div", {
-    style: {
-      overflow: "hidden",
-      flex: 1
-    }
-  }, /*#__PURE__*/React.createElement("div", {
-    className: "mes-display",
-    style: {
-      fontSize: 15,
-      fontWeight: 800,
-      letterSpacing: "-.01em",
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      color: SB_TEXT,
-      lineHeight: 1.15
-    }
-  }, "AOMAGA"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      fontWeight: 700,
-      letterSpacing: ".08em",
-      color: "rgba(255,255,255,0.85)",
-      whiteSpace: "nowrap"
-    }
-  }, "VIỆT NAM")), /*#__PURE__*/React.createElement("button", {
-    onClick: onCloseMobile,
-    className: "mes-sidebar-close",
-    "aria-label": "Đóng menu",
-    style: {
-      border: "none",
-      background: "transparent",
-      color: SB_TEXT_DIM,
-      cursor: "pointer",
-      padding: 4,
-      display: "none"
-    }
-  }, /*#__PURE__*/React.createElement(X, {
-    size: 20
-  }))), /*#__PURE__*/React.createElement("nav", {
-    style: {
-      flex: 1,
-      padding: "10px 10px",
-      overflowY: "auto"
-    }
-  }, NAV_ITEMS.filter(n => n.roles.includes(role) && (!n.mod || amgIsPower(currentUser) || amgCan(currentUser, "v", n.mod))).map(item => {
-    const isActive = active === item.key;
-    const Icon = item.icon;
-    return /*#__PURE__*/React.createElement("button", {
-      key: item.key,
-      onClick: () => onChange(item.key),
-      title: item.label,
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 11,
-        width: "100%",
-        padding: "10px 12px",
-        marginBottom: 4,
-        borderRadius: 9,
-        border: "none",
-        cursor: "pointer",
-        textAlign: "left",
-        background: isActive ? "#FFFFFF" : "transparent",
-        color: isActive ? COLORS.sidebarActiveText : SB_TEXT_DIM,
-        fontSize: 13,
-        fontWeight: isActive ? 700 : 500,
-        boxShadow: isActive ? "0 3px 10px rgba(0,0,0,.18)" : "none",
-        transition: "background .12s ease, color .12s ease"
-      }
-    }, /*#__PURE__*/React.createElement(Icon, {
-      size: 16,
-      style: {
-        flexShrink: 0
-      }
-    }), !collapsed && /*#__PURE__*/React.createElement("span", {
-      style: {
-        whiteSpace: "nowrap",
-        overflow: "hidden"
-      }
-    }, item.label));
-  })), /*#__PURE__*/React.createElement("button", {
-    onClick: onToggleCollapse,
-    className: "mes-sidebar-collapse-btn",
-    style: {
-      margin: 10,
-      justifyContent: "center",
-      display: "flex",
-      alignItems: "center",
-      gap: 6,
-      padding: "8px 10px",
-      borderRadius: 8,
-      border: `1px solid ${SB_BORDER}`,
-      background: "rgba(255,255,255,0.1)",
-      color: SB_TEXT,
-      cursor: "pointer",
-      fontSize: 12.5
-    }
-  }, collapsed ? /*#__PURE__*/React.createElement(ChevronRight, {
-    size: 15
-  }) : /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(ChevronDown, {
-    size: 15,
-    style: {
-      transform: "rotate(90deg)"
-    }
-  }), " Thu gọn")));
+  const h = React.createElement;
+  const [tip, setTip] = useState(null);
+  const groups = useMemo(() => amgNavGroups(currentUser, role), [currentUser, role]);
+  const showTip = (e, label) => {
+    if (!collapsed) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    setTip({ label, top: r.top + r.height / 2, left: r.right + 10 });
+  };
+  const hideTip = () => setTip(null);
+  return h("aside", {
+    className: "mes-sidebar" + (collapsed ? " mes-sidebar--collapsed" : "") + (mobileOpen ? " mes-sidebar--open" : ""),
+    "aria-label": "Điều hướng chính"
+  },
+  h("div", { className: "mes-sb-head" },
+    h("div", { className: "mes-sb-logo" }, h("img", { src: LOGO_DATA_URI, alt: "AOMAGA", style: { width: "100%", height: "100%", objectFit: "contain" } })),
+    h("div", { className: "mes-sb-brand" }, h("b", { className: "mes-display" }, "AOMAGA"), h("span", null, "VIỆT NAM · MES")),
+    h("button", { onClick: onCloseMobile, className: "mes-sidebar-close mes-btn-ghost", "aria-label": "Đóng menu", style: { border: "none", background: "transparent", color: "rgba(255,255,255,.75)", cursor: "pointer", padding: 6, alignItems: "center" } }, h(X, { size: 20 }))),
+  h("nav", { className: "mes-sb-nav", onScroll: hideTip },
+    groups.map(g => h("div", { key: g.key, className: "mes-sb-group", role: "group", "aria-label": g.label },
+      h("div", { className: "mes-sb-title" }, g.label),
+      g.items.map(item => {
+        const isActive = active === item.key;
+        const Icon = item.icon;
+        return h("button", {
+          key: item.key,
+          onClick: () => { hideTip(); onChange(item.key); },
+          onMouseEnter: e => showTip(e, item.label),
+          onMouseLeave: hideTip,
+          onFocus: e => showTip(e, item.label),
+          onBlur: hideTip,
+          title: collapsed ? undefined : item.label,
+          "aria-label": item.label,
+          "aria-current": isActive ? "page" : undefined,
+          className: "mes-nav-item" + (isActive ? " is-active" : "")
+        }, h(Icon, { size: 18 }), h("span", null, item.label));
+      })))),
+  h("div", { className: "mes-sb-foot" },
+    h("button", { onClick: onToggleCollapse, className: "mes-sb-collapse", title: collapsed ? "Mở rộng menu" : "Thu gọn menu", "aria-label": collapsed ? "Mở rộng menu" : "Thu gọn menu", "aria-expanded": !collapsed },
+      collapsed ? h(ChevronRight, { size: 16 }) : h(React.Fragment, null, h(ChevronDown, { size: 16, style: { transform: "rotate(90deg)" } }), "Thu gọn"))),
+  tip && collapsed && h("div", { className: "mes-sb-tip", style: { top: tip.top, left: tip.left }, role: "tooltip" }, tip.label));
 }
+
+// Danh sách cảnh báo tính từ dữ liệu thật; chỉ tính lại khi dữ liệu nguồn đổi (không tính lại mỗi lần vẽ lại cả ứng dụng)
+function useAlerts(orders, machines, attendance, extra) {
+  return useMemo(() => amgComputeAlerts({ orders, machines, attendance, extra }), [orders, machines, attendance, extra]);
+}
+
 function TopBar({
   currentUser,
   onLogout,
   pageTitle,
+  groupLabel,
   onRefresh,
   onOpenMobileNav,
   theme,
   onToggleTheme,
-  alerts,
+  orders,
+  machines,
+  attendance,
+  extra,
   onNavigate
 }) {
   const h = React.createElement;
@@ -181,42 +97,36 @@ function TopBar({
   const roleLabel = AMG_ROLES[roleKey] || "";
   const unit = amgIsPower(currentUser) ? "" : currentUser.team ? `Tổ ${currentUser.team}` : "";
   const shift = amgCurrentShift();
-  const list = alerts || [];
-  const LV = { err: COLORS.copper, warn: COLORS.amber, info: COLORS.blue };
+  const list = useAlerts(orders, machines, attendance, extra);
+  const LV = { err: COLORS.red, warn: COLORS.amber, info: COLORS.blue };
   const pill = {
-    fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 999,
+    fontSize: FZ(AMG_TYPE.xs), fontWeight: 600, padding: "4px 11px", borderRadius: 999,
     background: COLORS.bgPanel2, border: `1px solid ${COLORS.border}`, color: COLORS.textDim, whiteSpace: "nowrap"
   };
-  return h("div", {
-    className: "mes-topbar",
-    style: {
-      height: 60, borderBottom: `1px solid ${COLORS.border}`, display: "flex", alignItems: "center",
-      justifyContent: "space-between", padding: "0 22px", position: "sticky", top: 0,
-      background: COLORS.bgPanel, zIndex: 50, gap: 10
-    }
-  },
-  h("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } },
-    h("button", { onClick: onOpenMobileNav, className: "mes-btn mes-btn-ghost mes-hamburger-btn", "aria-label": "Mở menu", style: { padding: 8, flexShrink: 0 } }, h(Menu, { size: 18 })),
-    h("div", { className: "mes-display", style: { fontSize: 15, fontWeight: 600, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, pageTitle)),
-  h("div", { style: { display: "flex", alignItems: "center", gap: 10, flexShrink: 0 } },
-    h("span", { className: "mes-topbar-shift", style: pill, title: `Ca hiện tại theo giờ máy (${shift.range})` }, shift.label),
-    h("div", { style: { position: "relative" } },
-      h("button", { onClick: () => setBellOpen(o => !o), className: "mes-btn mes-btn-ghost", title: "Thông báo", "aria-label": `Thông báo, ${list.length} mục`, style: { padding: 8, position: "relative" } },
-        h(Bell, { size: 16 }),
-        list.length > 0 && h("span", { style: { position: "absolute", top: 1, right: 1, minWidth: 16, height: 16, borderRadius: 999, background: COLORS.copper, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" } }, list.length)),
-      bellOpen && h("div", { style: { position: "fixed", inset: 0, zIndex: 90 }, onClick: () => setBellOpen(false) }),
-      bellOpen && h("div", { style: { position: "absolute", right: 0, top: 42, width: 320, maxWidth: "88vw", background: COLORS.bgPanel, border: `1.5px solid ${COLORS.borderLight}`, borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,.25)", zIndex: 100, overflow: "hidden" } },
-        h("div", { style: { padding: "10px 14px", fontSize: 12.5, fontWeight: 700, borderBottom: `1px solid ${COLORS.border}`, color: COLORS.text } }, "Cảnh báo cần xử lý"),
-        list.length === 0 && h("div", { style: { padding: 16, fontSize: 12.5, color: COLORS.textDim } }, "Không có cảnh báo từ dữ liệu hiện có."),
-        list.map(a => h("button", { key: a.id, onClick: () => { setBellOpen(false); onNavigate && onNavigate(a.tab); }, style: { display: "flex", gap: 10, width: "100%", textAlign: "left", padding: "10px 14px", background: "transparent", border: "none", borderBottom: `1px solid ${COLORS.border}`, cursor: "pointer", color: COLORS.text } },
-          h("span", { style: { width: 8, height: 8, borderRadius: 999, background: LV[a.level], marginTop: 5, flexShrink: 0 } }),
-          h("span", { style: { fontSize: 12.5, lineHeight: 1.4 } }, h("b", null, a.title), a.detail ? h("span", { style: { display: "block", color: COLORS.textDim, fontSize: 11.5 } }, a.detail) : null))))),
-    h("button", { onClick: onToggleTheme, title: theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối", "aria-label": "Đổi giao diện sáng/tối", className: "mes-btn mes-btn-ghost", style: { padding: 8 } }, theme === "dark" ? h(SunIcon, { size: 16 }) : h(MoonIcon, { size: 16 })),
-    h("button", { onClick: onRefresh, title: "Đồng bộ dữ liệu mới nhất", className: "mes-btn mes-btn-ghost", style: { padding: 8 } }, h(RefreshCw, { size: 15 })),
-    h("div", { className: "mes-topbar-divider", style: { width: 1, height: 22, background: COLORS.border } }),
-    h("div", { className: "mes-topbar-user", style: { textAlign: "right" } },
-      h("div", { style: { fontSize: 12.5, fontWeight: 600, color: COLORS.text } }, currentUser.fullName),
-      h("div", { style: { fontSize: 10.5, color: COLORS.textFaint } }, [roleLabel, unit].filter(Boolean).join(" · "))),
-    h("div", { style: { width: 32, height: 32, borderRadius: 999, background: amgIsPower(currentUser) ? COLORS.copper : COLORS.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#FFFFFF", flexShrink: 0 } }, currentUser.fullName?.slice(0, 1)?.toUpperCase()),
-    h(IconButton, { icon: LogOut, onClick: onLogout, title: "Đăng xuất" })));
+  return h("header", { className: "mes-topbar" },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } },
+      h("button", { onClick: onOpenMobileNav, className: "mes-btn mes-btn-ghost mes-hamburger-btn", "aria-label": "Mở menu", style: { padding: 8, flexShrink: 0 } }, h(Menu, { size: 19 })),
+      h("div", { className: "mes-topbar-crumb" }, groupLabel ? h("small", null, groupLabel) : null, h("b", { className: "mes-display" }, pageTitle))),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 8, flexShrink: 0 } },
+      h("span", { className: "mes-topbar-shift", style: pill, title: `Ca hiện tại theo giờ máy (${shift.range})` }, shift.label),
+      h("div", { style: { position: "relative" } },
+        h("button", { onClick: () => setBellOpen(o => !o), className: "mes-iconbtn", title: "Thông báo", "aria-label": `Thông báo, ${list.length} mục`, "aria-expanded": bellOpen, style: { position: "relative" } },
+          h(Bell, { size: 17 }),
+          list.length > 0 && h("span", { style: { position: "absolute", top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 999, background: COLORS.red, color: "#fff", fontSize: FZ(11), fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 5px", border: `2px solid ${COLORS.bgPanel}` } }, list.length)),
+        bellOpen && h("div", { style: { position: "fixed", inset: 0, zIndex: 90 }, onClick: () => setBellOpen(false) }),
+        bellOpen && h("div", { className: "mes-card", style: { position: "absolute", right: 0, top: 42, width: 360, maxWidth: "90vw", boxShadow: AMG_SHADOW.lg, zIndex: 100, overflow: "hidden" } },
+          h("div", { style: { padding: "11px 14px", fontSize: FZ(AMG_TYPE.md), fontWeight: 700, borderBottom: `1px solid ${COLORS.border}`, color: COLORS.text } }, `Cảnh báo cần xử lý (${list.length})`),
+          list.length === 0 && h("div", { style: { padding: 16, fontSize: FZ(AMG_TYPE.sm), color: COLORS.textDim } }, "Không có cảnh báo từ dữ liệu hiện có."),
+          h("div", { style: { maxHeight: "60vh", overflowY: "auto", overscrollBehavior: "contain" } },
+            list.map(a => h("button", { key: a.id, onClick: () => { setBellOpen(false); onNavigate && onNavigate(a.tab); }, className: "dx-alert" },
+              h("span", { className: "dx-alert-dot", style: { background: LV[a.level] } }),
+              h("span", { style: { minWidth: 0 } }, h("span", { className: "dx-alert-t", style: { display: "block" } }, a.title), a.detail ? h("span", { className: "dx-alert-d", style: { display: "block" } }, a.detail) : null)))))),
+      h("button", { onClick: onToggleTheme, title: theme === "dark" ? "Chuyển sang giao diện sáng" : "Chuyển sang giao diện tối", "aria-label": "Đổi giao diện sáng/tối", className: "mes-iconbtn" }, theme === "dark" ? h(SunIcon, { size: 16 }) : h(MoonIcon, { size: 16 })),
+      h("button", { onClick: onRefresh, title: "Đồng bộ dữ liệu mới nhất", "aria-label": "Đồng bộ dữ liệu mới nhất", className: "mes-iconbtn" }, h(RefreshCw, { size: 15 })),
+      h("div", { className: "mes-topbar-divider", style: { width: 1, height: 24, background: COLORS.border, margin: "0 4px" } }),
+      h("div", { className: "mes-topbar-user", style: { textAlign: "right", lineHeight: 1.25 } },
+        h("div", { style: { fontSize: FZ(AMG_TYPE.md), fontWeight: 600, color: COLORS.text } }, currentUser.fullName),
+        h("div", { style: { fontSize: FZ(AMG_TYPE.xs), color: COLORS.textFaint } }, [roleLabel, unit].filter(Boolean).join(" · "))),
+      h("div", { style: { width: 34, height: 34, borderRadius: 999, background: amgIsPower(currentUser) ? COLORS.copper : COLORS.blue, display: "flex", alignItems: "center", justifyContent: "center", fontSize: FZ(AMG_TYPE.md), fontWeight: 700, color: "#FFFFFF", flexShrink: 0 }, "aria-hidden": "true" }, currentUser.fullName?.slice(0, 1)?.toUpperCase()),
+      h(IconButton, { icon: LogOut, onClick: onLogout, title: "Đăng xuất" })));
 }

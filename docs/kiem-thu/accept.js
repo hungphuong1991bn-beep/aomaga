@@ -144,7 +144,11 @@ const A=async code=>await t.run('(async()=>{'+code+'})()');
    let o=await get('orders','ORD-T6'); ok(o.status!=='completed','chưa hoàn thành khi chưa đóng công đoạn cuối');
    eq(o.finishedDone,200);
    const r=JSON.parse(await A(`return JSON.stringify(await amgFlowFinishRun({runId:"R6b",completeStage:true}))`));
-   ok(r.orderCompleted); o=await get('orders','ORD-T6'); eq(o.status,'completed'); ok(o.completedAt);
+   ok(!r.orderCompleted,'kết thúc lệnh + hoàn thành công đoạn cuối KHÔNG tự hoàn thành đơn'); ok(r.readyToComplete,'phải báo đủ điều kiện chờ xác nhận');
+   o=await get('orders','ORD-T6'); ok(o.status!=='completed'); eq(o.openRunIds,[]);
+   await A(`await amgFlowCompleteOrder({orderId:"ORD-T6",reason:""})`);
+   o=await get('orders','ORD-T6'); eq(o.status,'completed'); ok(o.completedAt); eq(o.completedBy,'Quản trị'); eq(o.completionMode,'manual'); eq(o.statusHistory[0].action,'complete');
+   ok(o.bom===undefined||Array.isArray(o.bom)); ok(!!o.stages.keo_tinh&&o.stages.keo_tinh.done===200,'sản lượng giữ nguyên');
    // vẫn nằm trong collection orders
    const all=JSON.parse(await A('const ids=[];await new Promise(res=>{const u=db.collection(FS.orders).onSnapshot(s=>{s.docs.forEach(d=>ids.push(d.id));res();});});return JSON.stringify(ids)'));
    ok(all.includes('ORD-T6'));
@@ -171,7 +175,7 @@ const A=async code=>await t.run('(async()=>{'+code+'})()');
  await T('Mở lại đơn: bắt buộc lý do + nhật ký + giữ dữ liệu',async()=>{
    await rejects(A(`await amgFlowReopenOrder({orderId:"ORD-T7",reason:"x"})`),'lý do');
    await A(`await amgFlowReopenOrder({orderId:"ORD-T7",reason:"Khách đặt thêm 500kg"})`);
-   const o=await get('orders','ORD-T7'); eq(o.status,'reopened'); eq(o.stages.keo_trung.done,500); eq(o.statusHistory.length,1); eq(o.statusHistory[0].reason,'Khách đặt thêm 500kg');
+   const o=await get('orders','ORD-T7'); eq(o.status,'reopened'); eq(o.stages.keo_trung.done,500); eq(o.statusHistory.length,2); eq(o.statusHistory[1].reason,'Khách đặt thêm 500kg'); eq(o.statusHistory[1].action,'reopen');
    ok(!o.stageComplete.keo_trung,'công đoạn cuối được mở lại');
    const logs=JSON.parse(await A('const a=[];await new Promise(res=>{db.collection(FS.audit).onSnapshot(s=>{s.docs.forEach(d=>a.push(d.data()));res()})});return JSON.stringify(a.filter(x=>x.type==="order_reopen"))'));
    eq(logs.length,1);

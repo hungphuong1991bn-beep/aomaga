@@ -13,6 +13,14 @@ const AMG_STAGE_SHORT_TOL = 0.995; // dưới 99,5% số lượng đặt → ho�
 const AMG_OVER_HARD = 1.5;         // chặn nhập nếu công đoạn vượt 150% số lượng đặt
 const AMG_OVER_WARN = 1.05;        // cảnh báo (cần xác nhận) nếu vượt 105%
 const AMG_PREV_TOL = 1.01;         // sản lượng công đoạn sau không vượt công đoạn trước quá 1% (chỉ đơn có quy trình đã xác nhận)
+const AMG_UNITS = ["kg", "m"];     // v48: đơn vị sản lượng của đơn hàng. Một đơn chỉ dùng MỘT đơn vị → không bao giờ cộng lẫn kg và mét.
+const AMG_RATE_MIN_MS = 60000;     // năng suất chỉ tính khi đã chạy thực tế ≥ 1 phút (tránh số vô nghĩa)
+
+// Đơn vị của đơn: dữ liệu cũ không có trường unit → kg (đúng như trước đây)
+function amgOrderUnit(order) { return order && order.unit === "m" ? "m" : "kg"; }
+// Đơn "đang hoạt động" = chưa hoàn thành. Mọi danh sách đang hoạt động (Đơn hàng, BOM, chờ phân lệnh, máy, kế hoạch) lọc bằng hàm này —
+// KHÔNG xóa đơn khỏi Firebase; đơn completed chỉ xuất hiện ở tab Đơn hàng hoàn thành.
+function amgIsActiveOrder(order) { return !!order && order.status !== "completed"; }
 
 /* ---------- Chuẩn hóa lệnh (tương thích ngược với bản ghi cũ / thiếu trường) ----------
    Mọi màn hình đọc lệnh qua CÙNG hàm này (useFlowData gọi một lần) nên Kế hoạch, Thẻ máy, Đơn hàng, Hoàn thành luôn thống nhất.
@@ -88,7 +96,7 @@ function amgBucketMeta(key) {
     assigned: { label: "Đã phân máy", color: COLORS.blue },
     running: { label: "Đang chạy", color: COLORS.green },
     paused: { label: "Tạm dừng", color: COLORS.amber },
-    stage_done: { label: "Hoàn thành công đoạn", color: COLORS.violet },
+    stage_done: { label: "Chờ xác nhận hoàn thành đơn", color: COLORS.violet },
     waiting_next: { label: "Chờ công đoạn tiếp theo", color: COLORS.orange }
   };
   return m[key] || m.unassigned;
@@ -206,18 +214,44 @@ function amgPrevStage(order, stageKey) {
   const i = route.indexOf(stageKey);
   return i > 0 ? route[i - 1] : null;
 }
-// Có được phân máy cho công đoạn này chưa? Công đoạn đầu luôn được; công đoạn sau cần công đoạn trước đã có sản lượng hoặc đã hoàn thành.
+// Có được phân máy cho công đoạn này chưa? Trả { ok, reason, code }.
+//  code: no_order | completed | unconfirmed | not_in_route | stage_done | prev
+// v48: CHỈ đơn đã xác nhận quy trình (routingConfirmed + routing) mới được phân lệnh. Đơn chưa xác nhận KHÔNG bị suy diễn công đoạn từ quy cách.
+//      Công đoạn phải nằm trong routing đã xác nhận, chưa hoàn thành; công đoạn sau cần công đoạn trước đã có sản lượng hoặc đã hoàn thành.
 function amgStageAssignable(order, stageKey) {
-  if (!order) return { ok: false, reason: "Không tìm thấy đơn hàng" };
-  if (order.status === "completed") return { ok: false, reason: "Đơn đã hoàn thành. Hãy mở lại đơn nếu cần sản xuất thêm" };
+  if (!order) return { ok: false, code: "no_order", reason: "Không tìm thấy đơn hàng" };
+  if (order.status === "completed") return { ok: false, code: "completed", reason: "Đơn đã hoàn thành. Hãy mở lại đơn nếu cần sản xuất thêm" };
+  if (!amgIsFlowOrder(order)) return { ok: false, code: "unconfirmed", reason: "Đơn chưa xác nhận quy trình sản xuất — vào tab Đơn hàng → Sửa → Xác nhận quy trình trước khi phân lệnh" };
   const route = amgOrderRoute(order);
-  if (route.indexOf(stageKey) < 0) return { ok: false, reason: `Công đoạn ${amgStageLabel(stageKey)} không nằm trong quy trình của đơn` };
-  if (amgStageComplete(order, stageKey)) return { ok: false, reason: `Công đoạn ${amgStageLabel(stageKey)} đã hoàn thành` };
+  if (route.indexOf(stageKey) < 0) return { ok: false, code: "not_in_route", reason: `Công đoạn ${amgStageLabel(stageKey)} không nằm trong quy trình của đơn` };
+  if (amgStageComplete(order, stageKey)) return { ok: false, code: "stage_done", reason: `Công đoạn ${amgStageLabel(stageKey)} đã hoàn thành` };
   const prev = amgPrevStage(order, stageKey);
   if (prev && !amgStageComplete(order, prev) && amgStageDone(order, prev) <= 0) {
-    return { ok: false, reason: `Công đoạn trước (${amgStageLabel(prev)}) chưa có sản lượng` };
+    return { ok: false, code: "prev", reason: `Công đoạn trước (${amgStageLabel(prev)}) chưa có sản lượng` };
   }
-  return { ok: true };
+  return { ok: true, code: "ok" };
+}
+// Danh sách đơn cho MỘT công đoạn (dùng chung cho giao diện phân lệnh và kiểm thử):
+//   eligible  : nằm trong routing đã xác nhận + đủ điều kiện phân lệnh ngay
+//   waiting   : nằm trong routing nhưng chưa đủ điều kiện (công đoạn trước chưa có sản lượng) — hiện mờ kèm lý do
+// Đơn KHÔNG có công đoạn này trong routing, đơn đã hoàn thành công đoạn này, đơn completed, đơn chưa xác nhận quy trình → KHÔNG xuất hiện.
+function amgOrdersForStage(orders, runs, stageKey) {
+  const eligible = [], waiting = [];
+  const prio = o => amgPriorityMeta(o.priority).rank;
+  const cmp = (a, b) => (prio(a) - prio(b)) || String(a.deliveryDate || "9999").localeCompare(String(b.deliveryDate || "9999")) || String(a.id).localeCompare(String(b.id));
+  (orders || []).forEach(o => {
+    if (!amgIsActiveOrder(o) || !amgIsFlowOrder(o)) return;
+    if (amgOrderRoute(o).indexOf(stageKey) < 0) return;
+    const ck = amgStageAssignable(o, stageKey);
+    if (ck.ok) eligible.push(o);
+    else if (ck.code === "prev") waiting.push({ order: o, reason: ck.reason });
+  });
+  eligible.sort(cmp); waiting.sort((a, b) => cmp(a.order, b.order));
+  return { eligible, waiting };
+}
+// Đơn đang hoạt động nhưng CHƯA xác nhận quy trình → xử lý riêng, không tự suy diễn công đoạn
+function amgUnconfirmedOrders(orders) {
+  return (orders || []).filter(o => amgIsActiveOrder(o) && !amgIsFlowOrder(o));
 }
 // Thông tin một công đoạn của một đơn
 function amgStageInfo(order, runs, stageKey) {
@@ -294,15 +328,30 @@ function amgOrderLifecycle(order, runs, today) {
     dueSoon: !completed && days !== null && days >= 0 && days <= AMG_DUE_SOON_DAYS
   };
 }
-// Đủ điều kiện hoàn thành đơn?
+// Đủ điều kiện hoàn thành đơn? (chưa xét lệnh đang mở — xem amgOrderCompletionState)
 function amgOrderReadiness(order) {
   const route = amgOrderRoute(order);
   const missing = route.filter(k => !amgStageComplete(order, k));
   const qty = amgStageQty(order);
   const last = route[route.length - 1];
   const finished = last ? amgStageDone(order, last) : 0;
-  const qtyMet = qty !== null && finished >= qty;
+  const qtyMet = qty !== null && finished >= qty * AMG_STAGE_SHORT_TOL; // cùng dung sai 99,5% với hoàn thành công đoạn → không mâu thuẫn giữa hai bước
   return { route, missing, allStages: missing.length === 0 && route.length > 0, qty, finished, qtyMet, ready: missing.length === 0 && route.length > 0 && qtyMet };
+}
+// Trạng thái xác nhận HOÀN THÀNH ĐƠN (C): tách bạch với kết thúc lệnh (A) và hoàn thành công đoạn (B).
+//  blockers  : lý do CHƯA được xác nhận (còn lệnh mở, thiếu công đoạn bắt buộc, đã completed)
+//  canConfirm: không còn blocker → người có quyền được bấm HOÀN THÀNH ĐƠN
+//  short     : thành phẩm chưa đủ số lượng → bắt buộc lý do
+function amgOrderCompletionState(order, runs) {
+  const rd = amgOrderReadiness(order);
+  const legacy = !amgIsFlowOrder(order);
+  const open = amgRunsOfOrder(runs, order.id).filter(amgIsOpenRun);
+  const blockers = [];
+  if (order.status === "completed") blockers.push("Đơn đã hoàn thành");
+  if (open.length) blockers.push(`Còn lệnh sản xuất đang mở trên máy ${open.map(r => r.machineId).join(", ")} — kết thúc lệnh trước`);
+  if (!legacy && !rd.allStages) blockers.push("Chưa hoàn thành công đoạn bắt buộc: " + rd.missing.map(amgStageLabel).join(", "));
+  const awaiting = order.status !== "completed" && ((!legacy && rd.allStages) || (legacy && amgLegacyDoneCandidate(order)));
+  return { rd, legacy, open, blockers, canConfirm: blockers.length === 0, short: !rd.qtyMet, awaiting };
 }
 // Đơn cũ (chưa có quy trình xác nhận) đã đủ số lượng theo orderProgress nhưng chưa được xác nhận hoàn thành
 function amgLegacyDoneCandidate(order) {
@@ -328,6 +377,7 @@ function amgValidateOutput({ order, run, machine, qty, orderId, machineId, stage
   if (machineId && run.machineId !== machineId) errors.push("Sai máy: lệnh này chạy trên máy " + run.machineId);
   if (stageKey && run.stageKey !== stageKey) errors.push("Sai công đoạn: lệnh này thuộc công đoạn " + amgStageLabel(run.stageKey));
   if (order.status === "completed") errors.push("Đơn đã hoàn thành — mở lại đơn nếu cần ghi thêm sản lượng");
+  if (run.unit && run.unit !== amgOrderUnit(order)) errors.push(`Đơn vị lệnh (${run.unit}) khác đơn vị của đơn (${amgOrderUnit(order)}) — không cộng lẫn kg và mét`);
   if (run.productionStatus !== "running") errors.push(run.productionStatus === "paused" ? "Lệnh đang tạm dừng — hãy tiếp tục chạy trước khi ghi sản lượng" : run.productionStatus === "assigned" ? "Lệnh chưa bắt đầu — bấm Bắt đầu chạy trước" : "Lệnh đã kết thúc, không ghi thêm được");
   if (machine && (machine.status === "broken" || machine.status === "maintenance")) errors.push(`Máy ${machine.id} đang ${machine.status === "broken" ? "hỏng" : "bảo trì"} — tạm dừng lệnh trước khi xử lý`);
   if (!Number.isFinite(qty) || qty <= 0) errors.push("Sản lượng phải là số lớn hơn 0 (tối đa 2 chữ số thập phân)");
@@ -348,6 +398,75 @@ function amgValidateOutput({ order, run, machine, qty, orderId, machineId, stage
     }
   }
   return { errors, warnings };
+}
+
+/* ---------- Thời gian chạy thực tế của lệnh (v48) ----------
+   Tính HOÀN TOÀN từ mốc thời gian đã lưu (startedAt, endedAt, pauses[{at,resumedAt}]) và đồng hồ máy người xem.
+   KHÔNG lưu bộ đếm từng giây lên Firebase: mỗi lần mở trang, mọi thiết bị tự tính lại ra cùng một kết quả.
+     elapsedMs = tổng thời gian chạy (từ bắt đầu đến hiện tại/kết thúc)
+     pausedMs  = tổng thời gian tạm dừng (kể cả lần tạm dừng đang mở)
+     netMs     = thời gian sản xuất thực tế = elapsed − paused
+     ratePerHour = sản lượng đã chạy ÷ giờ sản xuất thực tế (kg/giờ hoặc m/giờ), null nếu chưa đủ dữ liệu */
+function amgMs(v) {
+  if (v === null || v === undefined || v === "") return NaN;
+  if (typeof v === "number") return v;
+  if (typeof v.toMillis === "function") return v.toMillis();
+  return new Date(v).getTime();
+}
+function amgRunTiming(run, nowMs, order) {
+  const now = typeof nowMs === "number" ? nowMs : Date.now();
+  const t = { startedAt: null, endedAt: null, elapsedMs: 0, pausedMs: 0, netMs: 0, pauseCount: 0, openPause: false, ratePerHour: null,
+    planned: 0, produced: 0, remain: 0, pct: null, unit: (run && run.unit) || amgOrderUnit(order) };
+  if (!run) return t;
+  const s = amgMs(run.startedAt), e = amgMs(run.endedAt);
+  t.startedAt = Number.isNaN(s) ? null : run.startedAt;
+  t.endedAt = Number.isNaN(e) ? null : run.endedAt;
+  t.planned = Number(run.plannedQuantity) || 0;
+  t.produced = Number(run.producedQuantity) || 0;
+  t.remain = Math.max(0, Math.round((t.planned - t.produced) * 100) / 100);
+  t.pct = t.planned > 0 ? Math.min(999, t.produced / t.planned * 100) : null;
+  if (Number.isNaN(s)) return t; // chưa bắt đầu chạy
+  const end = Number.isNaN(e) ? now : e;
+  t.elapsedMs = Math.max(0, end - s);
+  (run.pauses || []).forEach(p => {
+    const a = amgMs(p.at);
+    if (Number.isNaN(a)) return;
+    const r = amgMs(p.resumedAt);
+    const open = Number.isNaN(r);
+    if (open && Number.isNaN(e) && run.productionStatus === "paused") t.openPause = true;
+    const b = open ? end : r;
+    t.pauseCount++;
+    t.pausedMs += Math.max(0, Math.min(b, end) - Math.max(a, s));
+  });
+  t.pausedMs = Math.min(t.pausedMs, t.elapsedMs);
+  t.netMs = t.elapsedMs - t.pausedMs;
+  if (t.netMs >= AMG_RATE_MIN_MS && t.produced > 0) t.ratePerHour = Math.round(t.produced / (t.netMs / 3600000) * 100) / 100;
+  return t;
+}
+// 3725000 → "1:02:05" (đồng hồ chạy); dùng cho thẻ máy / màn hình TV
+function amgClock(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const sec = Math.floor(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
+  return `${h}:${String(m).padStart(2, "0")}:${String(x).padStart(2, "0")}`;
+}
+// 3725000 → "1 giờ 02 phút" (bảng, báo cáo)
+function amgHm(ms) {
+  if (!Number.isFinite(ms) || ms < 0) return "—";
+  const mins = Math.round(ms / 60000), d = Math.floor(mins / 1440), h = Math.floor((mins % 1440) / 60), m = mins % 60;
+  if (d > 0) return `${d} ngày ${h} giờ ${String(m).padStart(2, "0")} phút`;
+  if (h > 0) return `${h} giờ ${String(m).padStart(2, "0")} phút`;
+  return `${m} phút`;
+}
+// Tổng hợp theo các lệnh (cộng thời gian của từng lệnh; sản lượng cộng THEO ĐƠN VỊ, không bao giờ cộng lẫn kg và m)
+function amgSumTimings(runs, nowMs, order) {
+  const out = { elapsedMs: 0, pausedMs: 0, netMs: 0, byUnit: {} };
+  (runs || []).forEach(r => {
+    if (r.productionStatus === "cancelled") return;
+    const t = amgRunTiming(r, nowMs, order);
+    out.elapsedMs += t.elapsedMs; out.pausedMs += t.pausedMs; out.netMs += t.netMs;
+    out.byUnit[t.unit] = Math.round(((out.byUnit[t.unit] || 0) + t.produced) * 100) / 100;
+  });
+  return out;
 }
 
 /* ---------- Thời gian ---------- */
@@ -389,6 +508,7 @@ function amgRunIssues(rawRuns, orders, machines) {
     if (r._statusInferred) push("status_missing", "info", r, `Lệnh ${r.id} (máy ${r.machineId}) thiếu productionStatus — hệ thống đang suy ra "${amgRunStatusMeta(r.productionStatus).label}" từ thời gian bắt đầu/kết thúc.`);
     if (!amgIsOpenRun(r)) return;
     const o = orderById[r.orderId], m = machineById[r.machineId];
+    if (o && o.status === "completed") push("run_on_completed_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${r.orderId} đã ở trạng thái HOÀN THÀNH. Kết thúc lệnh để giải phóng máy (đơn hoàn thành không được còn lệnh mở).`, "close");
     if (!o) push("orphan_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${r.orderId} không còn tồn tại.`, "close");
     else if (amgOrderRoute(o).indexOf(r.stageKey) < 0) push("stage_not_in_route", "warn", r, `Lệnh ${r.id} (máy ${r.machineId}) thuộc công đoạn ${amgStageLabel(r.stageKey)} nhưng quy trình đơn ${r.orderId} không có công đoạn này.`);
     if (!m) push("unknown_machine", "error", r, `Lệnh ${r.id} gắn với mã máy "${r.machineId}" không có trong danh mục máy.`, "cancel");

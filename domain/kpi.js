@@ -56,10 +56,10 @@ function amgComputeKpis(view, data, user, period, now) {
   const prog = norm.map(o => orderProgress(o));
   // Đơn thuộc phạm vi (có công đoạn của tổ)
   const scoped = norm.filter(o => getApplicableStages(o).some(inScope));
-  const isDone = o => orderProgress(o).statusLabel === "Hoàn thành";
+  const isDone = o => o.status === "completed" || orderProgress(o).statusLabel === "Hoàn thành";
   const done = scoped.filter(isDone).length;
-  const running = scoped.filter(o => orderProgress(o).statusLabel === "Đang sản xuất").length;
-  const notStarted = scoped.filter(o => orderProgress(o).statusLabel === "Chưa bắt đầu").length;
+  const running = scoped.filter(o => !isDone(o) && orderProgress(o).statusLabel === "Đang sản xuất").length;
+  const notStarted = scoped.filter(o => !isDone(o) && orderProgress(o).statusLabel === "Chưa bắt đầu").length;
   const today = new Date(n.toDateString()).getTime();
   let late = 0, soon = 0, withDate = 0;
   scoped.forEach(o => {
@@ -106,7 +106,7 @@ function amgComputeKpis(view, data, user, period, now) {
   if (view === "gd") tiles = [
     T("total", "Tổng đơn hàng", scoped.length, `${notStarted} chưa bắt đầu`, "none", "orders"),
     T("run", "Đang sản xuất", running, "", "info", "orders"),
-    T("done", "Hoàn thành", done, "", "ok", "orders"),
+    T("done", "Hoàn thành", done, "Xem ở tab Đơn hàng hoàn thành", "ok", "completed"),
     dueTile, outTile, machineTile, attTile, scrapTile,
     T("quality", "Chất lượng đạt / NG", "—", "Chưa có dữ liệu kiểm tra (QA/QC chưa kích hoạt)", "none", "alert")];
   else if (view === "qd") tiles = [

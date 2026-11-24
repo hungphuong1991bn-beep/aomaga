@@ -85,11 +85,7 @@ function MachineStatusModal({
     title: `Máy ${machine.id} · ${machine.typeLabel}`,
     onClose: onClose,
     width: 630
-  }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      zoom: 1.5
-    }
-  }, /*#__PURE__*/React.createElement(Field, {
+  }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(Field, {
     label: "Trạng thái hoạt động"
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -121,7 +117,7 @@ function MachineStatusModal({
     style: {
       padding: 12,
       marginBottom: 14,
-      border: `1.5px solid ${COLORS.red}55`,
+      border: `1px solid ${COLORS.red}55`,
       borderTop: `3px solid ${COLORS.red}`
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -133,7 +129,7 @@ function MachineStatusModal({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, /*#__PURE__*/React.createElement("b", null, "Tổng thời gian dừng máy: "), /*#__PURE__*/React.createElement("span", {
     style: {
@@ -144,7 +140,7 @@ function MachineStatusModal({
     onClick: handleExportMachineExcel,
     className: "mes-btn",
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       padding: "5px 8px"
     }
   }, /*#__PURE__*/React.createElement(Download, {
@@ -155,7 +151,7 @@ function MachineStatusModal({
       background: "none",
       border: "none",
       color: COLORS.blue,
-      fontSize: 11.5,
+      fontSize: FZ(12),
       cursor: "pointer",
       padding: 0,
       display: "flex",
@@ -183,7 +179,7 @@ function MachineStatusModal({
     style: {
       padding: "6px 0",
       borderTop: `1px solid ${COLORS.border}`,
-      fontSize: 11.5
+      fontSize: FZ(12)
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -216,7 +212,7 @@ function MachineStatusModal({
     }
   }, ev.reason))))), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       color: COLORS.textFaint,
       marginBottom: 14
     }

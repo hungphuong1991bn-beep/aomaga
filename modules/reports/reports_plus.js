@@ -58,12 +58,12 @@ function ReportsPlusPage({ auditLog, scrap, extra, machines, orders }) {
   const mrows = (() => { const m = {}; mtR.forEach(x => { const k = x.machineId || "—"; m[k] = m[k] || { id: k, name: k, n: 0, cost: 0, down: 0 }; m[k].n++; m[k].cost += Number(x.cost) || 0; m[k].down += Number(x.downMinutes) || 0; }); return Object.keys(m).map(k => m[k]); })();
   const periodH = Math.max(1, (new Date(to) - new Date(from)) / 3600000 + 24);
 
-  const inp = { background: COLORS.bgInset, border: `1.5px solid ${COLORS.borderLight}`, borderRadius: 8, color: COLORS.text, padding: "8px 10px", fontSize: 13 };
+  const inp = { background: COLORS.bgInset, border: `1px solid ${COLORS.borderLight}`, borderRadius: 8, color: COLORS.text, padding: "8px 10px", fontSize: FZ(13) };
   const bar = (v, mx, c) => rkh("div", { style: { height: 8, background: COLORS.bgInset, borderRadius: 4, minWidth: 80 } }, rkh("div", { style: { width: Math.round(v / mx * 100) + "%", height: "100%", background: c || COLORS.blue, borderRadius: 4 } }));
 
   const filterBar = rkh("div", { className: "mes-no-print", style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", marginBottom: 14 } },
-    rkh("label", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Từ ngày "), rkh("input", { type: "date", value: from, onChange: e => setFrom(e.target.value), style: inp }),
-    rkh("label", { style: { fontSize: 12.5, color: COLORS.textDim } }, "đến "), rkh("input", { type: "date", value: to, onChange: e => setTo(e.target.value), style: inp }),
+    rkh("label", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Từ ngày "), rkh("input", { type: "date", value: from, onChange: e => setFrom(e.target.value), style: inp }),
+    rkh("label", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "đến "), rkh("input", { type: "date", value: to, onChange: e => setTo(e.target.value), style: inp }),
     rkh("span", { style: { display: "flex", gap: 6, flexWrap: "wrap" } }, [["today", "Hôm nay"], ["week", "7 ngày"], ["month", "Tháng này"], ["year", "Năm nay"]].map(([k, l]) => rkh(Button, { key: k, variant: "ghost", onClick: () => {
       const n = new Date(); setTo(today);
       setFrom(k === "today" ? today : k === "week" ? amgTodayKey(new Date(n.getTime() - 6 * 864e5)) : k === "month" ? amgTodayKey(new Date(n.getFullYear(), n.getMonth(), 1)) : n.getFullYear() + "-01-01");
@@ -89,7 +89,7 @@ function ReportsPlusPage({ auditLog, scrap, extra, machines, orders }) {
       rkh(RecordList, { title: "Hiệu suất thiết bị theo máy", rows: mrows, searchKeys: ["name"], exportName: "hieu-suat-thiet-bi", emptyTitle: "Chưa có phiếu bảo trì trong kỳ",
         columns: [{ key: "name", label: "Máy" }, { key: "n", label: "Số lần", align: "right" }, { key: "cost", label: "Chi phí", align: "right", render: r => r.cost.toLocaleString("vi-VN"), export: r => r.cost }, { key: "down", label: "Dừng (giờ)", align: "right", render: r => (r.down / 60).toFixed(1), export: r => (r.down / 60).toFixed(1) },
           { key: "avail", label: "Sẵn sàng*", align: "right", sortValue: r => -r.down, render: r => Math.max(0, (1 - r.down / 60 / periodH) * 100).toFixed(1) + "%", export: r => Math.max(0, (1 - r.down / 60 / periodH) * 100).toFixed(1) + "%" }] }),
-      rkh("div", { style: { fontSize: 11.5, color: COLORS.textFaint } }, "* Sẵn sàng = 1 − giờ dừng ghi nhận ÷ số giờ lịch của kỳ (chỉ tính từ phiếu bảo trì đã ghi, chưa phải OEE đầy đủ).")) }
+      rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, "* Sẵn sàng = 1 − giờ dừng ghi nhận ÷ số giờ lịch của kỳ (chỉ tính từ phiếu bảo trì đã ghi, chưa phải OEE đầy đủ).")) }
   ];
 
   return rkh(PageFrame, {

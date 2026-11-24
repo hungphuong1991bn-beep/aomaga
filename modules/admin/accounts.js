@@ -100,7 +100,7 @@ function LegacyAccountsPanel({ users, onRemoved }) {
   const { askConfirm, showAlert } = useDialog();
   const [busy, setBusy] = useState(false);
   const legacy = amgLegacyAccountsIn(users);
-  if (legacy.length === 0) return rkh("div", { className: "mes-card", style: { padding: 14, marginBottom: 18, fontSize: 13, color: COLORS.green, fontWeight: 600 } }, "✓ Không còn tài khoản tổ cũ dùng chung ở máy xưởng. Mỗi người dùng đăng nhập bằng tài khoản riêng.");
+  if (legacy.length === 0) return rkh("div", { className: "mes-card", style: { padding: 14, marginBottom: 18, fontSize: FZ(13), color: COLORS.green, fontWeight: 600 } }, "✓ Không còn tài khoản tổ cũ dùng chung ở máy xưởng. Mỗi người dùng đăng nhập bằng tài khoản riêng.");
   async function run() {
     if (busy) return;
     if (!(await askConfirm(`Gỡ ${legacy.length} tài khoản tổ cũ (${legacy.map(u => u.username).join(", ")})?\n\nHệ thống sẽ tự tải bản sao lưu dữ liệu trước. Sau khi gỡ, các tài khoản này không đăng nhập được nữa. Tài khoản Admin không bị ảnh hưởng. Hãy lập tài khoản Quản đốc/Nhân viên riêng trước khi gỡ.`, { danger: true, confirmLabel: "Sao lưu rồi gỡ" }))) return;
@@ -113,9 +113,9 @@ function LegacyAccountsPanel({ users, onRemoved }) {
     } catch (e) { await showAlert(e.message || String(e), { title: "Không gỡ được" }); }
     setBusy(false);
   }
-  return rkh("div", { className: "mes-card", style: { padding: 14, marginBottom: 18, border: `1.5px solid ${COLORS.amber}`, borderLeft: `6px solid ${COLORS.amber}` } },
+  return rkh("div", { className: "mes-card", style: { padding: 14, marginBottom: 18, border: `1px solid ${COLORS.amber}`, borderLeft: `6px solid ${COLORS.amber}` } },
     rkh("div", { style: { fontWeight: 800, marginBottom: 6 } }, `Tài khoản tổ cũ đăng nhập chung ở máy xưởng (${legacy.length})`),
-    rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim, marginBottom: 10 } }, "Các tài khoản dùng chung theo tổ không cho biết ai đã thao tác. Hệ phân quyền mới dùng tài khoản riêng với 3 vai trò (Admin, Quản đốc, Nhân viên)."),
+    rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim, marginBottom: 10 } }, "Các tài khoản dùng chung theo tổ không cho biết ai đã thao tác. Hệ phân quyền mới dùng tài khoản riêng với 3 vai trò (Admin, Quản đốc, Nhân viên)."),
     rkh("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 } }, legacy.map(u => rkh(Badge, { key: u.username, color: COLORS.amber }, `${u.username} · ${u.fullName || ""}`))),
     rkh(Button, { variant: "danger", disabled: busy, onClick: run }, busy ? "Đang xử lý..." : "Sao lưu rồi gỡ các tài khoản tổ cũ"));
 }

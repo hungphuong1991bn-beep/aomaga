@@ -169,7 +169,7 @@ function StaffImportModal({
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13,
+      fontSize: FZ(13),
       color: COLORS.textDim,
       marginBottom: 12
     }
@@ -193,12 +193,12 @@ function StaffImportModal({
   }), " Chọn file")), error && /*#__PURE__*/React.createElement("div", {
     style: {
       color: COLORS.red,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       marginBottom: 12
     }
   }, error), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.textFaint,
       display: "flex",
       alignItems: "center",
@@ -211,7 +211,7 @@ function StaffImportModal({
     onClick: downloadStaffTemplate,
     className: "mes-btn mes-btn-ghost",
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       flexShrink: 0
     }
   }, /*#__PURE__*/React.createElement(Download, {
@@ -231,7 +231,7 @@ function StaffImportModal({
     color: COLORS.amber
   }, updateCount, " sẽ cập nhật (trùng mã NV)")), parsed.missingCols.length > 0 && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.amber,
       marginBottom: 10
     }
@@ -285,7 +285,7 @@ function StaffImportModal({
     }
   }, "Thay thế toàn bộ danh sách"))), mode === "replace" && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.red,
       marginBottom: 10
     }
@@ -324,7 +324,7 @@ function StaffFormModal({
       borderRadius: 8,
       padding: "8px 12px",
       marginBottom: 14,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: COLORS.textDim
     }
   }, "Đang chỉnh sửa: ", /*#__PURE__*/React.createElement("b", {
@@ -424,7 +424,7 @@ function AttendanceCheckbox({
       width: 26,
       height: 26,
       borderRadius: 7,
-      border: checked ? `1.5px solid ${status.color}` : `1.5px solid ${status.color}55`,
+      border: checked ? `1px solid ${status.color}` : `1px solid ${status.color}55`,
       background: checked ? status.color : `${status.color}0d`,
       cursor: "pointer",
       display: "flex",
@@ -635,7 +635,7 @@ function AttendanceSection({
     background: COLORS.bgPanel2,
     zIndex: 10,
     textAlign: "center",
-    fontSize: 10,
+    fontSize: FZ(12),
     whiteSpace: "nowrap",
     borderBottom: `2px solid ${COLORS.border}`
   };
@@ -670,12 +670,12 @@ function AttendanceSection({
   }, "Tổ ", t))), /*#__PURE__*/React.createElement(Button, {
     onClick: () => setAllShift("caNgay", filterTeam),
     style: {
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, "Ca Ngày"), /*#__PURE__*/React.createElement(Button, {
     onClick: () => setAllShift("caDem", filterTeam),
     style: {
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, "Ca Đêm"), /*#__PURE__*/React.createElement("div", {
     style: {
@@ -687,7 +687,7 @@ function AttendanceSection({
     type: "button",
     onClick: () => exportExcel("day"),
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       padding: "7px 12px",
       borderRadius: 8,
       border: `1px solid ${COLORS.green}`,
@@ -705,7 +705,7 @@ function AttendanceSection({
     type: "button",
     onClick: () => exportExcel("week"),
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       padding: "7px 12px",
       borderRadius: 8,
       border: `1px solid ${COLORS.blue}`,
@@ -723,7 +723,7 @@ function AttendanceSection({
     type: "button",
     onClick: () => exportExcel("month"),
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       padding: "7px 12px",
       borderRadius: 8,
       border: `1px solid ${COLORS.copper}`,
@@ -760,7 +760,7 @@ function AttendanceSection({
     style: {
       textAlign: "left",
       padding: "8px 14px",
-      fontSize: 11,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       textTransform: "uppercase",
@@ -771,7 +771,7 @@ function AttendanceSection({
     style: {
       textAlign: "center",
       padding: "8px 6px",
-      fontSize: 10,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       borderBottom: `1px solid ${COLORS.border}`
@@ -781,7 +781,7 @@ function AttendanceSection({
     style: {
       textAlign: "center",
       padding: "6px 4px",
-      fontSize: 10,
+      fontSize: FZ(12),
       color: s.color,
       fontWeight: 700,
       borderBottom: `1px solid ${COLORS.border}`,
@@ -809,7 +809,7 @@ function AttendanceSection({
       style: {
         padding: "7px 14px",
         fontWeight: 700,
-        fontSize: 13
+        fontSize: FZ(13)
       }
     }, /*#__PURE__*/React.createElement("span", {
       style: {
@@ -833,14 +833,14 @@ function AttendanceSection({
       }
     }, ts[a.key] > 0 ? /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 13,
+        fontSize: FZ(13),
         fontWeight: 700,
         color: a.color
       }
     }, ts[a.key]) : /*#__PURE__*/React.createElement("span", {
       style: {
         color: COLORS.border,
-        fontSize: 11
+        fontSize: FZ(12)
       }
     }, "—"))));
   }), displayTeams.length > 1 && (() => {
@@ -857,7 +857,7 @@ function AttendanceSection({
       style: {
         padding: "8px 14px",
         fontWeight: 800,
-        fontSize: 13,
+        fontSize: FZ(13),
         color: COLORS.copperBright
       }
     }, "Tổng cộng"), /*#__PURE__*/React.createElement("td", {
@@ -873,14 +873,14 @@ function AttendanceSection({
       }
     }, total[a.key] > 0 ? /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 13,
+        fontSize: FZ(13),
         fontWeight: 800,
         color: a.color
       }
     }, total[a.key]) : /*#__PURE__*/React.createElement("span", {
       style: {
         color: COLORS.border,
-        fontSize: 11
+        fontSize: FZ(12)
       }
     }, "—"))));
   })()))), /*#__PURE__*/React.createElement("div", {
@@ -912,7 +912,7 @@ function AttendanceSection({
       textAlign: "left",
       minWidth: 110,
       padding: "10px 14px",
-      fontSize: 11,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       textTransform: "uppercase",
@@ -924,7 +924,7 @@ function AttendanceSection({
       textAlign: "left",
       minWidth: 170,
       padding: "10px 8px",
-      fontSize: 11,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       textTransform: "uppercase",
@@ -947,7 +947,7 @@ function AttendanceSection({
       margin: "0 auto",
       borderRadius: 999,
       background: `${s.color}1f`,
-      border: `1.5px solid ${s.color}77`,
+      border: `1px solid ${s.color}77`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
@@ -958,7 +958,7 @@ function AttendanceSection({
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       color: s.color,
-      fontSize: 10,
+      fontSize: FZ(12),
       fontWeight: 700,
       marginTop: 2
     }
@@ -967,7 +967,7 @@ function AttendanceSection({
       textAlign: "center",
       minWidth: 80,
       padding: "10px 8px",
-      fontSize: 11,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       textTransform: "uppercase",
@@ -1007,7 +1007,7 @@ function AttendanceSection({
     }), /*#__PURE__*/React.createElement("span", {
       className: "mes-display",
       style: {
-        fontSize: 13,
+        fontSize: FZ(13),
         fontWeight: 700
       }
     }, "Tổ ", team), /*#__PURE__*/React.createElement(Badge, {
@@ -1021,7 +1021,7 @@ function AttendanceSection({
       type: "button",
       onClick: () => setAllShift("caNgay", team),
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         padding: "3px 10px",
         borderRadius: 6,
         border: `1px solid ${COLORS.border}`,
@@ -1033,7 +1033,7 @@ function AttendanceSection({
       type: "button",
       onClick: () => setAllShift("caDem", team),
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         padding: "3px 10px",
         borderRadius: 6,
         border: `1px solid ${COLORS.border}`,
@@ -1078,7 +1078,7 @@ function AttendanceSection({
           onUpdate(dayKey, nd);
         },
         style: {
-          fontSize: 11,
+          fontSize: FZ(12),
           padding: "3px 8px",
           borderRadius: 5,
           border: `1px solid ${COLORS.border}`,
@@ -1096,7 +1096,7 @@ function AttendanceSection({
       colSpan: 2,
       style: {
         paddingLeft: 14,
-        fontSize: 12,
+        fontSize: FZ(12),
         color: COLORS.textFaint,
         fontStyle: "italic"
       }
@@ -1107,14 +1107,14 @@ function AttendanceSection({
       }
     }, teamSummary[a.key] > 0 ? /*#__PURE__*/React.createElement("span", {
       style: {
-        fontSize: 12,
+        fontSize: FZ(12),
         fontWeight: 700,
         color: a.color
       }
     }, teamSummary[a.key]) : /*#__PURE__*/React.createElement("span", {
       style: {
         color: COLORS.border,
-        fontSize: 11
+        fontSize: FZ(12)
       }
     }, "—"))), /*#__PURE__*/React.createElement("td", null)));
   }))))));
@@ -1188,7 +1188,7 @@ function StaffPage({
     onClick: () => setActiveTab(t.key),
     style: {
       padding: "8px 18px",
-      fontSize: 13.5,
+      fontSize: FZ(14),
       fontWeight: 600,
       border: "none",
       borderBottom: activeTab === t.key ? `2.5px solid ${COLORS.copper}` : "2.5px solid transparent",
@@ -1237,7 +1237,7 @@ function StaffPage({
     className: "mes-card",
     style: {
       marginBottom: 14,
-      border: `1.5px solid ${COLORS.blue}40`,
+      border: `1px solid ${COLORS.blue}40`,
       borderTop: `4px solid ${COLORS.blue}`
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -1255,7 +1255,7 @@ function StaffPage({
     className: "mes-display",
     style: {
       fontWeight: 700,
-      fontSize: 14
+      fontSize: FZ(14)
     }
   }, "Tổ ", g.team), /*#__PURE__*/React.createElement(Badge, {
     color: COLORS.blue

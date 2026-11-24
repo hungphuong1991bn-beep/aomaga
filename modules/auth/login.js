@@ -181,7 +181,7 @@ function LoginScreen({
       border: `1px solid #F5B5B1`,
       borderRadius: 8,
       padding: "10px 12px",
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: "#B42318",
       marginBottom: 14,
       display: "flex",
@@ -270,7 +270,7 @@ function LoginScreen({
   })))), err && /*#__PURE__*/React.createElement("div", {
     style: {
       color: COLORS.red,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       marginBottom: 12
     }
   }, err), /*#__PURE__*/React.createElement(Button, {

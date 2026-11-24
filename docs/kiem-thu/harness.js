@@ -13,7 +13,7 @@ function load(opts={}){
   run(fs.readFileSync((process.env.NM||'/home/claude/test/node_modules')+'/react-dom/umd/react-dom.development.js','utf8'),'react-dom');
   run(fs.readFileSync((process.env.NM||'/home/claude/test/node_modules')+'/xlsx/dist/xlsx.full.min.js','utf8'),'xlsx');
   if(opts.fake){ // Firebase "thật" (giả lập trung thực): không đi nhánh localStorage
-    const {makeFakeFirestore}=require('./fakefs'); const fdb=makeFakeFirestore(opts.fakeOpts||{});
+    const {makeFakeFirestore}=require('./fakefs'); const fdb=opts.sharedDb||makeFakeFirestore(opts.fakeOpts||{});
     w.__db=fdb; w.firebase={firestore:{FieldValue:{serverTimestamp:()=>fdb.__SENTINEL}}};
     run('window.PropTypes={};window.Recharts={};window.XLSX=window.XLSX||{};',"stubs");
   } else

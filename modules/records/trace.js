@@ -51,16 +51,16 @@ function TracePage({ extra, orders, machines, auditLog, onNavigate }) {
   ).slice(0, 20) : [];
   const t = sel ? amgTrace(sel.kind, sel.id, d) : null;
   const issues = amgIntegrity(d);
-  const sec = (title, items, fn) => rkh("div", { style: { marginBottom: 12 } }, rkh("div", { style: { fontWeight: 700, fontSize: 13, marginBottom: 4 } }, `${title} (${items.length})`),
-    items.length ? items.slice(0, 30).map((x, i) => rkh("div", { key: i, style: { fontSize: 12.5, padding: "5px 0", borderBottom: `1px solid ${COLORS.border}` } }, fn(x))) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Không có."));
-  const inp = { background: COLORS.bgInset, border: `1.5px solid ${COLORS.borderLight}`, borderRadius: 8, color: COLORS.text, padding: "9px 12px", fontSize: 13.5, width: "100%", maxWidth: 420 };
+  const sec = (title, items, fn) => rkh("div", { style: { marginBottom: 12 } }, rkh("div", { style: { fontWeight: 700, fontSize: FZ(13), marginBottom: 4 } }, `${title} (${items.length})`),
+    items.length ? items.slice(0, 30).map((x, i) => rkh("div", { key: i, style: { fontSize: FZ(13), padding: "5px 0", borderBottom: `1px solid ${COLORS.border}` } }, fn(x))) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Không có."));
+  const inp = { background: COLORS.bgInset, border: `1px solid ${COLORS.borderLight}`, borderRadius: 8, color: COLORS.text, padding: "9px 12px", fontSize: FZ(14), width: "100%", maxWidth: 420 };
   return rkh(PageFrame, {
     eyebrow: "Truy xuất", title: "Truy xuất & toàn vẹn dữ liệu", subtitle: "Từ một lô hoặc một đơn hàng, xem toàn bộ chuỗi liên quan; kiểm tra tham chiếu sai", icon: Search,
     guide: ["Nhập số lô, tên vật liệu, mã đơn hoặc khách hàng rồi chọn kết quả.", "Từ lô: phiếu kiểm, phiếu NG, nhập/xuất và các đơn đã dùng lô.", "Từ đơn: lô đã xuất, kiểm tra, NG, kế hoạch và sản lượng.", "Tab “Toàn vẹn dữ liệu” liệt kê bản ghi tham chiếu sai (không tự sửa, chỉ báo)."]
   }, rkh(SectionTabs, { sections: [
     { key: "trace", label: "Truy xuất", render: () => rkh("div", null,
       rkh("input", { value: q, onChange: e => { setQ(e.target.value); setSel(null); }, placeholder: "Số lô, vật liệu, mã đơn, khách hàng…", "aria-label": "Tìm truy xuất", style: inp }),
-      term && !sel && rkh("div", { style: { margin: "10px 0" } }, hits.length ? hits.map(h => rkh("div", { key: h.kind + h.id, style: { padding: "6px 0" } }, rkh(Button, { variant: "ghost", onClick: () => setSel(h) }, h.label))) : rkh("div", { style: { color: COLORS.textDim, fontSize: 13 } }, "Không tìm thấy.")),
+      term && !sel && rkh("div", { style: { margin: "10px 0" } }, hits.length ? hits.map(h => rkh("div", { key: h.kind + h.id, style: { padding: "6px 0" } }, rkh(Button, { variant: "ghost", onClick: () => setSel(h) }, h.label))) : rkh("div", { style: { color: COLORS.textDim, fontSize: FZ(13) } }, "Không tìm thấy.")),
       t && rkh("div", { style: { marginTop: 14 } },
         rkh("div", { style: { fontWeight: 700, marginBottom: 8 } }, t.kind === "lot" ? "Chuỗi truy xuất từ lô" : "Chuỗi truy xuất từ đơn hàng"),
         sec("Lô nguyên liệu", t.lots, l => `${l.lotNo || l.id} – ${l.material || ""} · ${l.supplier || ""} · ${(LOT_STATUS[l.status] || {}).label || ""}`),

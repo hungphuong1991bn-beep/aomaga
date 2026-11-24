@@ -13,7 +13,7 @@ async function assign(orderId,machineId,op){
   const m=modal(); await clickText(new RegExp('^'+machineId+'$'),m); await sleep(100);
   const ins=[...m.querySelectorAll('input.mes-input')];
   nativeSet(ins.find(i=>/Chọn hoặc nhập/.test(i.placeholder)),op); await sleep(100);
-  const b=findBtn(/Xác nhận phân máy/,m); return b;
+  const b=findBtn(/^Xác nhận phân lệnh$/,m); return b;
 }
 (async()=>{
   await sleep(300);
@@ -38,13 +38,17 @@ async function assign(orderId,machineId,op){
   ok('1b. A đang CHƯA PHÂN MÁY', /chưa phân/iu.test(txt(rowOf('A-001'))), txt(rowOf('A-001')).slice(0,200));
   let b=await assign('A-001','KT-01','Nguyễn A'); ok('2. Nút xác nhận phân máy dùng được',!b.disabled);
   await click(b); await click(b); await click(b); await sleep(900); // nhấp nhiều lần
+  ok('2b. Sau phân lệnh hiện hộp XÁC NHẬN BẮT ĐẦU CHẠY MÁY', !!findBtn(/Xác nhận bắt đầu chạy máy/,modal()), txt(modal()||doc.body).slice(0,120));
+  await clickText(/^Để sau$/,modal()); await sleep(300);
   ok('11. Bấm nhiều lần → đúng 1 lệnh mở', runs().filter(r=>r.orderId==='A-001').length===1, runs().length);
   ok('3. A không còn "CHƯA PHÂN MÁY"', !/chưa phân/iu.test(txt(rowOf('A-001'))), txt(rowOf('A-001')).slice(0,200));
   ok('3b. A hiển thị ĐÃ PHÂN MÁY + KT-01', /đã phân máy/iu.test(txt(rowOf('A-001')))&&/KT-01/.test(txt(rowOf('A-001'))), txt(rowOf('A-001')).slice(0,250));
   await go(/Giám sát máy móc/);
   ok('4. KT-01 hiện A-001 / ĐÃ PHÂN MÁY', cardOf('KT-01')&&/A-001/.test(txt(cardOf('KT-01')))&&/ĐÃ PHÂN MÁY/.test(txt(cardOf('KT-01'))), cardOf('KT-01')&&txt(cardOf('KT-01')).slice(0,200));
   ok('4b. Máy khác vẫn MÁY TRỐNG', /MÁY TRỐNG/.test(txt(cardOf('KT-02')||cardOf('KT-03')||doc.body)));
-  await clickText(/^Bắt đầu chạy$/,cardOf('KT-01')); await sleep(600);
+  await clickText(/^Bắt đầu chạy$/,cardOf('KT-01')); await sleep(400);
+  ok('5a. Bắt đầu chạy hỏi xác nhận trước khi chạy', !!findBtn(/Xác nhận bắt đầu chạy máy/,modal()));
+  await click(findBtn(/Xác nhận bắt đầu chạy máy/,modal())); await sleep(700);
   ok('5. KT-01 → ĐANG CHẠY', /ĐANG CHẠY/.test(txt(cardOf('KT-01'))), txt(cardOf('KT-01')).slice(0,150));
   ok('5b. DB: running+startedAt', runs()[0].productionStatus==='running'&&!!runs()[0].startedAt);
   // remount ("tải lại")
@@ -67,7 +71,7 @@ async function assign(orderId,machineId,op){
   ok('7b. Tiếp tục → ĐANG CHẠY', /ĐANG CHẠY/.test(txt(cardOf('KT-01'))));
   // 2nd order other machine
   await go(/Kế hoạch & phân công/);
-  b=await assign('B-002','KT-02','Trần B'); await click(b); await sleep(800);
+  b=await assign('B-002','KT-02','Trần B'); await click(b); await sleep(800); await clickText(/^Để sau$/,modal()); await sleep(300);
   ok('9. B-002 ở KT-02, không lẫn A-001/KT-01', runs().some(r=>r.orderId==='B-002'&&r.machineId==='KT-02')&&runs().some(r=>r.orderId==='A-001'&&r.machineId==='KT-01')&&runs().length===2);
   await go(/Giám sát máy móc/);
   ok('9b. Thẻ KT-02 = B-002, KT-01 = A-001', /B-002/.test(txt(cardOf('KT-02')))&&!/A-001/.test(txt(cardOf('KT-02')))&&/A-001/.test(txt(cardOf('KT-01'))));

@@ -212,7 +212,7 @@ function ScrapAddModal({
     key: col.label
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: col.color,
       textTransform: "uppercase",
@@ -239,11 +239,11 @@ function ScrapAddModal({
       reason: `${r.name} (${col.label}) — ${r.cause}`
     })),
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       padding: "5px 10px",
       borderRadius: 999,
       cursor: "pointer",
-      border: form.reason.startsWith(r.name) ? `1.5px solid ${COLORS.copper}` : `1.5px solid ${COLORS.borderLight}`,
+      border: form.reason.startsWith(r.name) ? `1px solid ${COLORS.copper}` : `1px solid ${COLORS.borderLight}`,
       background: form.reason.startsWith(r.name) ? `${COLORS.copper}20` : COLORS.bgPanel2,
       color: form.reason.startsWith(r.name) ? COLORS.copperBright : COLORS.textDim,
       fontWeight: form.reason.startsWith(r.name) ? 700 : 500
@@ -560,13 +560,13 @@ function QCPage({
       flex: 2,
       minWidth: 320,
       height: 130,
-      border: `1.5px solid ${COLORS.violet}55`,
+      border: `1px solid ${COLORS.violet}55`,
       borderTop: `4px solid ${COLORS.violet}`,
       boxShadow: `0 2px 8px ${COLORS.violet}22`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       color: COLORS.textDim,
       fontWeight: 600,
       marginBottom: 6,
@@ -581,7 +581,7 @@ function QCPage({
     dataKey: "name",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -594,7 +594,7 @@ function QCPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Bar, {
     dataKey: "value",
@@ -609,7 +609,7 @@ function QCPage({
       alignItems: "flex-end",
       gap: 10,
       flexWrap: "wrap",
-      border: `1.5px solid ${COLORS.green}55`,
+      border: `1px solid ${COLORS.green}55`,
       borderTop: `4px solid ${COLORS.green}`
     }
   }, /*#__PURE__*/React.createElement(Field, {
@@ -647,7 +647,7 @@ function QCPage({
     size: 14
   }), " Xuất Excel tỷ lệ phế liệu"), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       color: COLORS.textFaint,
       marginBottom: 8
     }
@@ -655,7 +655,7 @@ function QCPage({
     className: "mes-card mes-scroll-x",
     style: {
       marginBottom: 18,
-      border: `1.5px solid ${COLORS.blue}55`,
+      border: `1px solid ${COLORS.blue}55`,
       borderTop: `4px solid ${COLORS.blue}`,
       boxShadow: `0 2px 8px ${COLORS.blue}22`
     }
@@ -715,7 +715,7 @@ function QCPage({
     }), /*#__PURE__*/React.createElement("span", {
       className: "mes-mono",
       style: {
-        fontSize: 12.5,
+        fontSize: FZ(13),
         fontWeight: 700,
         color: r.pct > 5 ? COLORS.red : r.pct > 2 ? COLORS.amber : COLORS.green,
         flexShrink: 0
@@ -774,7 +774,7 @@ function QCPage({
     style: {
       marginBottom: 18,
       padding: 18,
-      border: `1.5px solid ${COLORS.orange}55`,
+      border: `1px solid ${COLORS.orange}55`,
       borderTop: `4px solid ${COLORS.orange}`,
       boxShadow: `0 2px 8px ${COLORS.orange}22`
     }
@@ -790,7 +790,7 @@ function QCPage({
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 15,
+      fontSize: FZ(15),
       fontWeight: 700
     }
   }, "Phế liệu theo Mã NVL — tổng hợp theo ngày"), /*#__PURE__*/React.createElement("div", {
@@ -805,7 +805,7 @@ function QCPage({
     value: scrapExportPeriod,
     onChange: e => setScrapExportPeriod(e.target.value),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 110
     }
@@ -821,7 +821,7 @@ function QCPage({
     value: scrapExportDate,
     onChange: e => setScrapExportDate(e.target.value),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 140
     }
@@ -831,14 +831,14 @@ function QCPage({
     value: scrapExportDate.slice(0, 7),
     onChange: e => setScrapExportDate(e.target.value + "-01"),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 130
     }
   }), /*#__PURE__*/React.createElement(Button, {
     onClick: handleExportByMaterial,
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 10px"
     }
   }, /*#__PURE__*/React.createElement(Download, {
@@ -902,7 +902,7 @@ function QCPage({
   }, fmtNum(total)))))), /*#__PURE__*/React.createElement("div", {
     className: "mes-card mes-scroll-x",
     style: {
-      border: `1.5px solid #0D948855`,
+      border: `1px solid #0D948855`,
       borderTop: `4px solid #0D9488`,
       boxShadow: `0 2px 8px #0D948822`
     }
@@ -916,7 +916,7 @@ function QCPage({
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 15,
+      fontSize: FZ(15),
       fontWeight: 700
     }
   }, "Danh sách ghi nhận phế liệu"), /*#__PURE__*/React.createElement("div", {
@@ -931,7 +931,7 @@ function QCPage({
     value: scrapExportPeriod,
     onChange: e => setScrapExportPeriod(e.target.value),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 110
     }
@@ -947,7 +947,7 @@ function QCPage({
     value: scrapExportDate,
     onChange: e => setScrapExportDate(e.target.value),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 140
     }
@@ -957,7 +957,7 @@ function QCPage({
     value: scrapExportDate.slice(0, 7),
     onChange: e => setScrapExportDate(e.target.value + "-01"),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 130
     }
@@ -966,7 +966,7 @@ function QCPage({
     value: scrapExportSource,
     onChange: e => setScrapExportSource(e.target.value),
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 8px",
       width: 140
     }
@@ -979,7 +979,7 @@ function QCPage({
   }, "Do máy")), /*#__PURE__*/React.createElement(Button, {
     onClick: handleExportScrapList,
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       padding: "6px 10px"
     }
   }, /*#__PURE__*/React.createElement(Download, {
@@ -1014,7 +1014,7 @@ function QCPage({
   }, s.reason || "—"), /*#__PURE__*/React.createElement("td", {
     style: {
       color: COLORS.textFaint,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, s.recordedBy), isAdmin && /*#__PURE__*/React.createElement("td", {
     style: {

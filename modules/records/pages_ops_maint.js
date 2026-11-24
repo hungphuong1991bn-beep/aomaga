@@ -249,13 +249,13 @@ function MaintenancePage({ extra, machines, auditLog, currentUser }) {
         const c = cl.filter(x => x.machineId === p.machineId).sort((a, b) => String(b.date).localeCompare(String(a.date))).slice(0, 10);
         const cost = h.reduce((s, x) => s + (Number(x.cost) || 0), 0), down = h.reduce((s, x) => s + (Number(x.downMinutes) || 0), 0);
         const nxt = h.filter(x => x.nextDue).map(x => x.nextDue).sort().pop();
-        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: 12.5 } }, rkh("b", null, a), " ", b);
+        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: FZ(13) } }, rkh("b", null, a), " ", b);
         return rkh("div", null,
           rkh(KpiRow, { tiles: [{ label: "Trạng thái hiện tại", value: (MACHINE_STATUS[m.status] || MACHINE_STATUS.unknown).label }, { label: "Số lần sửa/bảo trì", value: h.length }, { label: "Tổng chi phí", value: h.length ? money(cost) : "—" }, { label: "Tổng dừng máy (giờ)", value: h.length ? (down / 60).toFixed(1) : "—" }, { label: "Kỳ bảo trì tới", value: nxt ? amgFmtDate(nxt) : "—" }] }),
-          rkh("div", { style: { fontWeight: 700, fontSize: 13, margin: "6px 0" } }, "Lịch sử sửa chữa / bảo trì"),
-          h.length ? h.map(x => row(`${amgFmtDate(x.date)} · ${MT_KIND_LABEL[x.kind]}`, `${x.cause || ""} — ${x.handler || ""}${x.cost ? " — " + money(x.cost) + "đ" : ""}`)) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Chưa có."),
-          rkh("div", { style: { fontWeight: 700, fontSize: 13, margin: "12px 0 6px" } }, "Checklist đầu ca gần nhất"),
-          c.length ? c.map(x => row(`${amgFmtDate(x.date)} · ${AMG_SHIFT_LABEL[x.shift]}`, `${x.inspector || ""} — ${clItems.some(i => x[i.key] === "ng") ? "Có mục không đạt" : "Đạt"}`)) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Chưa có."));
+          rkh("div", { style: { fontWeight: 700, fontSize: FZ(13), margin: "6px 0" } }, "Lịch sử sửa chữa / bảo trì"),
+          h.length ? h.map(x => row(`${amgFmtDate(x.date)} · ${MT_KIND_LABEL[x.kind]}`, `${x.cause || ""} — ${x.handler || ""}${x.cost ? " — " + money(x.cost) + "đ" : ""}`)) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có."),
+          rkh("div", { style: { fontWeight: 700, fontSize: FZ(13), margin: "12px 0 6px" } }, "Checklist đầu ca gần nhất"),
+          c.length ? c.map(x => row(`${amgFmtDate(x.date)} · ${AMG_SHIFT_LABEL[x.shift]}`, `${x.inspector || ""} — ${clItems.some(i => x[i.key] === "ng") ? "Có mục không đạt" : "Đạt"}`)) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có."));
       }
     }]
   };

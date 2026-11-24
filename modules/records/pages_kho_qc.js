@@ -83,14 +83,14 @@ function WarehousePage({ extra, orders, auditLog, currentUser }) {
         const mv = moves.filter(m => m.lotId === l.id).sort((a, b) => String(b.date).localeCompare(String(a.date)));
         const ins = insp.filter(i => i.lotId === l.id);
         const ords = Array.from(new Set(mv.filter(m => m.type === "xuat" && m.orderId).map(m => m.orderId)));
-        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: 12.5 } }, rkh("b", null, a), " ", b);
+        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: FZ(13) } }, rkh("b", null, a), " ", b);
         return rkh("div", null,
-          rkh("div", { style: { fontWeight: 700, margin: "4px 0", fontSize: 13 } }, "Kiểm tra IQC / chất lượng liên quan"),
-          ins.length ? ins.map(i => row(`${i.id} · ${i.type} · ${amgFmtDate(i.date)}`, `Kết quả: ${i.result === "dat" ? "Đạt" : "NG"}`)) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Chưa có phiếu kiểm tra."),
-          rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: 13 } }, "Đơn hàng đã sử dụng lô này"),
-          ords.length ? ords.map(o => row(o, (orders.find(x => x.id === o) || {}).customer || "")) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Chưa xuất cho đơn hàng nào."),
-          rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: 13 } }, "Lịch sử nhập/xuất"),
-          mv.length ? mv.map(m => row(`${amgFmtDate(m.date)} · ${m.type === "nhap" ? "Nhập" : "Xuất"} ${m.qty}`, m.orderId ? "→ " + m.orderId : (m.note || ""))) : rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, "Chưa có phiếu nhập/xuất."));
+          rkh("div", { style: { fontWeight: 700, margin: "4px 0", fontSize: FZ(13) } }, "Kiểm tra IQC / chất lượng liên quan"),
+          ins.length ? ins.map(i => row(`${i.id} · ${i.type} · ${amgFmtDate(i.date)}`, `Kết quả: ${i.result === "dat" ? "Đạt" : "NG"}`)) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có phiếu kiểm tra."),
+          rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: FZ(13) } }, "Đơn hàng đã sử dụng lô này"),
+          ords.length ? ords.map(o => row(o, (orders.find(x => x.id === o) || {}).customer || "")) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa xuất cho đơn hàng nào."),
+          rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: FZ(13) } }, "Lịch sử nhập/xuất"),
+          mv.length ? mv.map(m => row(`${amgFmtDate(m.date)} · ${m.type === "nhap" ? "Nhập" : "Xuất"} ${m.qty}`, m.orderId ? "→ " + m.orderId : (m.note || ""))) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có phiếu nhập/xuất."));
       }
     }]
   };
@@ -258,7 +258,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
     detailTabs: [{
       key: "tm", label: "Truy xuất", render: n => {
         const i = insp.find(x => x.id === n.inspectionId), l = lots.find(x => x.id === n.lotId), o = orders.find(x => x.id === n.orderId);
-        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: 12.5 } }, rkh("b", null, a + ": "), b || "—");
+        const row = (a, b) => rkh("div", { style: { padding: "6px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: FZ(13) } }, rkh("b", null, a + ": "), b || "—");
         return rkh("div", null,
           row("Phiếu kiểm", i ? `${i.id} · ${i.type} · ${amgFmtDate(i.date)} · ${i.result === "dat" ? "Đạt" : "NG"}` : ""),
           row("Lô nguyên liệu", l ? `${l.lotNo || l.id} – ${l.material || ""} (${(LOT_STATUS[l.status] || {}).label})` : ""),

@@ -269,106 +269,135 @@ const ATTENDANCE_STATUSES = [{
 }];
 const NAV_ITEMS = [{
   key: "dashboard",
+  group: "dieuhanh",
   label: "Tổng quan & Nhập liệu",
   icon: LayoutDashboard,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "orders",
+  group: "kinhdoanh",
   label: "Đơn hàng & BOM",
   icon: ClipboardList,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "machines",
+  group: "sanxuat",
   label: "Kế hoạch sản xuất",
   icon: Cog,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "completed",
+  group: "kinhdoanh",
   label: "Đơn hàng hoàn thành",
   icon: CheckCircle2,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "downtime",
+  group: "sanxuat",
   label: "Theo dõi thời gian dừng máy",
   icon: History,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "qc",
+  group: "chatluong",
   label: "Chất lượng & Phế liệu",
   icon: FlaskConical,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "staff",
+  group: "nhansu",
   label: "Nhân sự",
   icon: Users,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "certificates",
+  group: "chatluong",
   label: "Chứng nhận ISO - UL",
   icon: AwardIcon,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "reports",
+  group: "baocao",
   label: "Báo cáo & Biểu đồ",
   icon: BarChart3,
   roles: ["admin", "manager", "employee"]
 }, {
   key: "ops",
+  group: "sanxuat",
   label: "Điều hành sản xuất",
   icon: CalendarIcon,
   roles: ["admin", "manager", "employee"],
   mod: "dieuhanh"
 }, {
   key: "warehouse",
+  group: "kho",
   label: "Kho & nguyên liệu",
   icon: Package,
   roles: ["admin", "manager", "employee"],
   mod: "kho"
 }, {
   key: "inspect",
+  group: "chatluong",
   label: "Kiểm tra QA/QC & NG",
   icon: CheckSquare,
   roles: ["admin", "manager", "employee"],
   mod: "qc"
 }, {
   key: "maintenance",
+  group: "baocao",
   label: "Bảo trì & sửa chữa",
   icon: Wrench,
   roles: ["admin", "manager", "employee"],
   mod: "dung"
 }, {
   key: "training",
+  group: "nhansu",
   label: "Đào tạo & tăng ca",
   icon: Users,
   roles: ["admin", "manager", "employee"],
   mod: "nhansu"
 }, {
   key: "docs",
+  group: "baocao",
   label: "Hồ sơ & tài liệu",
   icon: FileTextIcon,
   roles: ["admin", "manager", "employee"],
   mod: "tailieu"
 }, {
   key: "reports2",
+  group: "baocao",
   label: "Báo cáo nâng cao",
   icon: BarChart3,
   roles: ["admin", "manager", "employee"],
   mod: "baocao"
 }, {
   key: "trace",
+  group: "chatluong",
   label: "Truy xuất & toàn vẹn",
   icon: Search,
   roles: ["admin", "manager", "employee"],
   mod: "qc"
 }, {
   key: "perms",
+  group: "hethong",
   label: "Phân quyền & giám sát",
   icon: ShieldCheck,
   roles: ["admin"]
 }, {
   key: "admin",
+  group: "hethong",
   label: "Quản trị hệ thống",
   icon: ShieldCheck,
   roles: ["admin"]
 }];
-
+// Nhóm điều hướng (v49). Chỉ liệt kê mục THỰC SỰ có trong NAV_ITEMS; nhóm không còn mục nào (hoặc người dùng không có quyền) sẽ tự ẩn.
+const NAV_GROUPS = [
+  { key: "dieuhanh", label: "Điều hành" },
+  { key: "kinhdoanh", label: "Kinh doanh & Đơn hàng" },
+  { key: "sanxuat", label: "Sản xuất" },
+  { key: "chatluong", label: "Chất lượng" },
+  { key: "kho", label: "Kho & Vật tư" },
+  { key: "nhansu", label: "Nhân sự" },
+  { key: "baocao", label: "Quản lý & Báo cáo" },
+  { key: "hethong", label: "Hệ thống" }
+];

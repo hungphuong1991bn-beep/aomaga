@@ -4,60 +4,36 @@ function StatCard({
   label,
   value,
   sub,
-  accent = COLORS.copper
+  accent = COLORS.blue,
+  onClick,
+  title
 }) {
-  return /*#__PURE__*/React.createElement("div", {
-    className: "mes-card",
-    style: {
-      padding: 16,
-      flex: 1,
-      minWidth: 180,
-      border: `1.5px solid ${accent}`,
-      borderTop: `4px solid ${accent}`,
-      boxShadow: `0 2px 8px ${accent}22`
-    }
+  const Tag = onClick ? "button" : "div";
+  return /*#__PURE__*/React.createElement(Tag, {
+    className: "dx-kpi",
+    onClick,
+    title,
+    type: onClick ? "button" : undefined
   }, /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 10
-    }
+    className: "dx-kpi-top"
   }, /*#__PURE__*/React.createElement("div", {
+    className: "dx-kpi-l"
+  }, label), Icon && /*#__PURE__*/React.createElement("div", {
+    className: "dx-kpi-ic",
     style: {
-      fontSize: 11.5,
-      color: COLORS.textDim,
-      fontWeight: 600,
-      textTransform: "uppercase",
-      letterSpacing: ".03em"
-    }
-  }, label), /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 36,
-      height: 36,
-      borderRadius: 999,
-      background: `linear-gradient(135deg, ${accent}, ${accent}CC)`,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      boxShadow: `0 4px 10px ${accent}40`
+      background: accent + "1A"
     }
   }, /*#__PURE__*/React.createElement(Icon, {
-    size: 17,
-    color: "#fff"
+    size: 16,
+    color: accent
   }))), /*#__PURE__*/React.createElement("div", {
-    className: "mes-display mes-mono",
+    className: "dx-kpi-v",
     style: {
-      fontSize: 24,
-      fontWeight: 700
+      color: accent
     }
-  }, value), sub && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 11.5,
-      color: COLORS.textFaint,
-      marginTop: 4
-    }
-  }, sub));
+  }, value), sub ? /*#__PURE__*/React.createElement("div", {
+    className: "dx-kpi-s"
+  }, sub) : null);
 }
 function ProductionPipeline({
   stageTotals,
@@ -81,7 +57,7 @@ function ProductionPipeline({
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 11,
+      fontSize: FZ(12),
       color: COLORS.copper,
       letterSpacing: ".08em",
       textTransform: "uppercase"
@@ -89,7 +65,7 @@ function ProductionPipeline({
   }, "Luồng công đoạn"), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 16,
+      fontSize: FZ(16),
       fontWeight: 700
     }
   }, "Dây đồng → Kéo → Ủ nhiệt → Mạ thiếc → Bện")), /*#__PURE__*/React.createElement(Badge, {
@@ -120,7 +96,7 @@ function ProductionPipeline({
     }, /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
-        fontSize: 13,
+        fontSize: FZ(13),
         fontWeight: 700,
         color: COLORS.copperBright,
         marginBottom: 6
@@ -168,7 +144,7 @@ function ProductionPipeline({
       color: s.color
     })), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 13,
+        fontSize: FZ(13),
         color: COLORS.textDim,
         marginTop: 8,
         textAlign: "center",
@@ -211,7 +187,7 @@ function QuickEntryForm({
   const [qty, setQty] = useState("");
   const [note, setNote] = useState("Ca ngày");
   const [msg, setMsg] = useState("");
-  const eligibleOrders = useMemo(() => orders.filter(o => getApplicableStages(o).includes(stageKey)), [orders, stageKey]);
+  const eligibleOrders = useMemo(() => orders.filter(o => o.status !== "completed" && getApplicableStages(o).includes(stageKey)), [orders, stageKey]);
   useEffect(() => {
     if (!eligibleOrders.find(o => o.id === orderId)) setOrderId(eligibleOrders[0]?.id || "");
   }, [stageKey]); // eslint-disable-line
@@ -259,7 +235,7 @@ function QuickEntryForm({
   }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10,
+      fontSize: FZ(12),
       color: COLORS.blue,
       letterSpacing: ".08em",
       textTransform: "uppercase",
@@ -268,7 +244,7 @@ function QuickEntryForm({
   }, "Tổng quan · Sản xuất"), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 19,
+      fontSize: FZ(18),
       fontWeight: 700,
       letterSpacing: "-0.01em"
     }
@@ -313,7 +289,7 @@ function QuickEntryForm({
       background: COLORS.bgInset,
       borderRadius: 8,
       padding: "8px 10px",
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.textDim,
       marginBottom: 12,
       display: "flex",
@@ -346,7 +322,7 @@ function QuickEntryForm({
     value: "Ca đêm"
   }, "Ca đêm"))), msg && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: msg.includes("thành công") ? COLORS.green : COLORS.red,
       marginBottom: 10
     }
@@ -379,7 +355,7 @@ function StageHistorySection({
     style: {
       marginTop: 18,
       padding: 18,
-      border: `1.5px solid ${COLORS.blue}55`,
+      border: `1px solid ${COLORS.blue}55`,
       borderTop: `4px solid ${COLORS.blue}`,
       boxShadow: `0 2px 8px ${COLORS.blue}22`
     }
@@ -445,7 +421,7 @@ function StageHistorySection({
   }, e.note || "—", fmtTime(e.ts) && /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10.5,
+      fontSize: FZ(12),
       color: COLORS.textFaint
     }
   }, fmtTime(e.ts))), /*#__PURE__*/React.createElement("td", {
@@ -517,7 +493,7 @@ function ActivityFeed({
   }), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 14.5,
+      fontSize: FZ(14),
       fontWeight: 700
     }
   }, "Hoạt động gần đây")), relevant.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -541,7 +517,7 @@ function ActivityFeed({
       style: {
         display: "flex",
         gap: 10,
-        fontSize: 12.5,
+        fontSize: FZ(13),
         alignItems: "flex-start"
       }
     }, /*#__PURE__*/React.createElement("div", {
@@ -565,7 +541,7 @@ function ActivityFeed({
     }, a.detail), /*#__PURE__*/React.createElement("div", {
       style: {
         color: COLORS.textFaint,
-        fontSize: 11
+        fontSize: FZ(12)
       }
     }, a.user, " · ", fmtDateTime(a.ts))), (canEditScrap || canEditProduction) && /*#__PURE__*/React.createElement(IconButton, {
       icon: Pencil,
@@ -598,6 +574,8 @@ function DashboardPage({
   onDeleteKeoTrung,
   onUpdateScrap,
   attendance,
+  runs,
+  extra,
   onNavigate
 }) {
   const [selectedStageKey, setSelectedStageKey] = useState(null);
@@ -627,7 +605,7 @@ function DashboardPage({
     });
     return t;
   }, [machines]);
-  const openOrders = orders.filter(o => orderProgress(o).statusLabel !== "Hoàn thành").length;
+  const openOrders = orders.filter(o => o.status !== "completed" && orderProgress(o).statusLabel !== "Hoàn thành").length;
   const last7Scrap = scrap.filter(s => {
     if (!isStageVisibleDash(s.stage)) return false;
     const d = new Date(s.date);
@@ -648,6 +626,8 @@ function DashboardPage({
     scrap: scrap,
     attendance: attendance,
     auditLog: auditLog,
+    runs: runs,
+    extra: extra,
     onNavigate: onNavigate
   }), /*#__PURE__*/React.createElement(ProductionPipeline, {
     stageTotals: stageTotals,

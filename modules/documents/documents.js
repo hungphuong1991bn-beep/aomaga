@@ -136,7 +136,7 @@ function CertificateAddModal({
       display: "flex",
       alignItems: "center",
       gap: 6,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: COLORS.textDim
     }
   }, /*#__PURE__*/React.createElement(FileSpreadsheet, {
@@ -152,7 +152,7 @@ function CertificateAddModal({
   })), err && /*#__PURE__*/React.createElement("div", {
     style: {
       color: COLORS.red,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       marginBottom: 10
     }
   }, err), /*#__PURE__*/React.createElement("div", {
@@ -231,11 +231,11 @@ function CertificatesPage({
     style: {
       padding: "6px 14px",
       borderRadius: 999,
-      border: `1.5px solid ${selectedFolder === "all" ? COLORS.copper : COLORS.border}`,
+      border: `1px solid ${selectedFolder === "all" ? COLORS.copper : COLORS.border}`,
       background: selectedFolder === "all" ? `${COLORS.copper}18` : COLORS.bgPanel2,
       color: selectedFolder === "all" ? COLORS.copperBright : COLORS.textDim,
       fontWeight: 700,
-      fontSize: 12.5
+      fontSize: FZ(13)
     }
   }, "Tất cả (", certificates.length, ")"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setSelectedFolder("none"),
@@ -243,11 +243,11 @@ function CertificatesPage({
     style: {
       padding: "6px 14px",
       borderRadius: 999,
-      border: `1.5px solid ${selectedFolder === "none" ? COLORS.textDim : COLORS.border}`,
+      border: `1px solid ${selectedFolder === "none" ? COLORS.textDim : COLORS.border}`,
       background: selectedFolder === "none" ? COLORS.bgPanel2 : COLORS.bgPanel2,
       color: COLORS.textDim,
       fontWeight: 700,
-      fontSize: 12.5
+      fontSize: FZ(13)
     }
   }, "Chưa phân loại (", certificates.filter(c => !c.folderId).length, ")"), (folders || []).map(f => /*#__PURE__*/React.createElement("div", {
     key: f.id,
@@ -262,12 +262,12 @@ function CertificatesPage({
     style: {
       padding: "6px 10px 6px 14px",
       borderRadius: selectedFolder === f.id ? "999px 0 0 999px" : 999,
-      border: `1.5px solid ${selectedFolder === f.id ? f.color : COLORS.border}`,
+      border: `1px solid ${selectedFolder === f.id ? f.color : COLORS.border}`,
       borderRight: selectedFolder === f.id ? "none" : undefined,
       background: selectedFolder === f.id ? `${f.color}18` : COLORS.bgPanel2,
       color: selectedFolder === f.id ? f.color : COLORS.textDim,
       fontWeight: 700,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       display: "flex",
       alignItems: "center",
       gap: 6
@@ -286,7 +286,7 @@ function CertificatesPage({
     style: {
       padding: "6px 8px",
       borderRadius: "0 999px 999px 0",
-      border: `1.5px solid ${f.color}`,
+      border: `1px solid ${f.color}`,
       borderLeft: "none",
       background: `${f.color}18`,
       color: f.color,
@@ -308,7 +308,7 @@ function CertificatesPage({
     style: {
       width: 150,
       padding: "6px 10px",
-      fontSize: 12.5
+      fontSize: FZ(13)
     },
     placeholder: "Tên thư mục...",
     value: newFolderName,
@@ -349,7 +349,7 @@ function CertificatesPage({
       background: "transparent",
       color: COLORS.textDim,
       fontWeight: 700,
-      fontSize: 12.5,
+      fontSize: FZ(13),
       display: "flex",
       alignItems: "center",
       gap: 5
@@ -375,7 +375,7 @@ function CertificatesPage({
       style: {
         padding: 0,
         overflow: "hidden",
-        border: `1.5px solid ${t.color}55`,
+        border: `1px solid ${t.color}55`,
         borderTop: `4px solid ${t.color}`,
         boxShadow: `0 2px 8px ${t.color}22`
       }
@@ -412,17 +412,17 @@ function CertificatesPage({
         fontWeight: 700,
         marginTop: 8,
         marginBottom: 4,
-        fontSize: 14
+        fontSize: FZ(14)
       }
     }, c.name), c.note && /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12,
+        fontSize: FZ(12),
         color: COLORS.textDim,
         marginBottom: 6
       }
     }, c.note), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.textFaint,
         display: "flex",
         justifyContent: "space-between",

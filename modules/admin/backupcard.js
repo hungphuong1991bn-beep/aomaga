@@ -15,7 +15,7 @@ function BackupCard() {
   return /*#__PURE__*/React.createElement("div", {
     className: "mes-card",
     style: { padding: 16, marginBottom: 24, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap" }
-  }, /*#__PURE__*/React.createElement("div", { style: { fontSize: 12.5, color: COLORS.textDim, maxWidth: 560 } },
+  }, /*#__PURE__*/React.createElement("div", { style: { fontSize: FZ(13), color: COLORS.textDim, maxWidth: 560 } },
     /*#__PURE__*/React.createElement("b", { style: { color: COLORS.text } }, "Sao lưu dữ liệu. "),
     "Tải về một tệp JSON chứa toàn bộ đơn hàng, máy móc, nhân sự, phế liệu, chấm công, nhật ký, chứng nhận và tài khoản (không kèm mật khẩu). Nên làm trước mỗi lần nâng cấp.",
     msg ? /*#__PURE__*/React.createElement("div", { style: { marginTop: 6, color: COLORS.green } }, msg) : null),

@@ -1,4 +1,4 @@
-/* ---------- Button ---------- */
+/* ---------- Button (v49: kiểu dáng nằm ở CSS .mes-btn*, một chỗ duy nhất) ---------- */
 function Button({
   variant,
   size,
@@ -7,48 +7,16 @@ function Button({
   children,
   style,
   type = "button",
+  className,
   ...rest
 }) {
-  const base = {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    padding: size === "sm" ? "6px 10px" : "9px 16px",
-    fontSize: size === "sm" ? 12.5 : 13.5,
-    fontWeight: 600,
-    borderRadius: 8,
-    cursor: disabled ? "not-allowed" : "pointer",
-    border: `1px solid ${COLORS.border}`,
-    background: COLORS.bgPanel2,
-    color: COLORS.text,
-    opacity: disabled ? 0.55 : 1,
-    whiteSpace: "nowrap"
-  };
-  const variants = {
-    primary: {
-      background: `linear-gradient(135deg, ${COLORS.copper}, ${COLORS.copperBright})`,
-      border: "1px solid transparent",
-      color: "#1a1006"
-    },
-    danger: {
-      background: COLORS.redDim,
-      border: `1px solid ${COLORS.red}55`,
-      color: COLORS.red
-    },
-    ghost: {
-      background: "transparent",
-      border: "1px solid transparent",
-      color: COLORS.textDim
-    }
-  };
-  const cls = "mes-btn" + (variant === "ghost" ? " mes-btn-ghost" : "");
+  const cls = ["mes-btn", variant === "primary" ? "mes-btn--primary" : variant === "danger" ? "mes-btn--danger" : variant === "ghost" ? "mes-btn--ghost mes-btn-ghost" : "", size === "sm" ? "mes-btn--sm" : "", className || ""].filter(Boolean).join(" ");
   return /*#__PURE__*/React.createElement("button", {
     type,
     className: cls,
     disabled,
     onClick: disabled ? undefined : onClick,
-    style: { ...base, ...(variants[variant] || {}), ...style },
+    style,
     ...rest
   }, children);
 }
@@ -58,24 +26,12 @@ function IconButton({ icon: Icon, onClick, title, danger, style, disabled }) {
   return /*#__PURE__*/React.createElement("button", {
     type: "button",
     title,
+    "aria-label": title,
     disabled,
     onClick,
-    style: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      width: 30,
-      height: 30,
-      borderRadius: 7,
-      border: `1px solid ${COLORS.border}`,
-      background: COLORS.bgPanel2,
-      color: danger ? COLORS.red : COLORS.textDim,
-      cursor: disabled ? "not-allowed" : "pointer",
-      opacity: disabled ? 0.5 : 1,
-      flexShrink: 0,
-      ...style
-    }
-  }, Icon && /*#__PURE__*/React.createElement(Icon, { size: 14 }));
+    className: "mes-iconbtn" + (danger ? " mes-iconbtn--danger" : ""),
+    style
+  }, Icon && /*#__PURE__*/React.createElement(Icon, { size: 15 }));
 }
 
 /* ---------- Modal ---------- */
@@ -85,7 +41,7 @@ function Modal({ title, onClose, width = 520, children }) {
     style: {
       position: "fixed",
       inset: 0,
-      background: "rgba(3,5,8,.6)",
+      background: "rgba(8,16,30,.55)",
       backdropFilter: "blur(2px)",
       display: "flex",
       alignItems: "center",
@@ -96,13 +52,17 @@ function Modal({ title, onClose, width = 520, children }) {
     onClick: e => { if (e.target === e.currentTarget && onClose) onClose(); }
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-card mes-fade-in mes-modal-card",
+    role: "dialog",
+    "aria-modal": "true",
     style: {
       width: "100%",
       maxWidth: width,
-      maxHeight: "88vh",
+      maxHeight: "90vh",
       overflowY: "auto",
+      overscrollBehavior: "contain",
       padding: 24,
-      position: "relative"
+      position: "relative",
+      boxShadow: AMG_SHADOW.lg
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -114,7 +74,7 @@ function Modal({ title, onClose, width = 520, children }) {
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
-    style: { fontSize: 17, fontWeight: 700, color: COLORS.text }
+    style: { fontSize: FZ(AMG_TYPE.xl), fontWeight: 700, color: COLORS.text, lineHeight: 1.3 }
   }, title), onClose && /*#__PURE__*/React.createElement(IconButton, {
     icon: X,
     onClick: onClose,
@@ -125,18 +85,11 @@ function Modal({ title, onClose, width = 520, children }) {
 /* ---------- Badge ---------- */
 function Badge({ color = COLORS.textDim, children }) {
   return /*#__PURE__*/React.createElement("span", {
+    className: "mes-badge",
     style: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      padding: "2px 9px",
-      borderRadius: 999,
-      fontSize: 11.5,
-      fontWeight: 700,
-      background: color + "22",
+      background: color + "1F",
       color,
-      border: `1px solid ${color}55`,
-      whiteSpace: "nowrap"
+      border: `1px solid ${color}40`
     }
   }, children);
 }
@@ -146,70 +99,74 @@ function Field({ label, children }) {
   return /*#__PURE__*/React.createElement("label", {
     style: { display: "block", marginBottom: 14 }
   }, label && /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 12, fontWeight: 600, color: COLORS.textDim, marginBottom: 6 }
+    style: { fontSize: FZ(AMG_TYPE.sm), fontWeight: 600, color: COLORS.textDim, marginBottom: 6 }
   }, label), children);
 }
 
 /* ---------- ProgressBar ---------- */
 function ProgressBar({ pct, color }) {
   const p = pct == null ? 0 : Math.max(0, Math.min(100, pct));
-  const barColor = color || (p >= 100 ? COLORS.green : p >= 60 ? COLORS.copper : COLORS.amber);
+  const barColor = color || (p >= 100 ? COLORS.green : p >= 60 ? COLORS.blue : COLORS.amber);
   return /*#__PURE__*/React.createElement("div", {
-    style: { width: "100%", height: 6, background: COLORS.bgInset, borderRadius: 4, overflow: "hidden" }
+    role: "progressbar",
+    "aria-valuenow": Math.round(p),
+    "aria-valuemin": 0,
+    "aria-valuemax": 100,
+    style: { width: "100%", height: 8, background: COLORS.bgPanel2, border: `1px solid ${COLORS.border}`, borderRadius: 99, overflow: "hidden" }
   }, /*#__PURE__*/React.createElement("div", {
-    style: { width: p + "%", height: "100%", background: barColor, borderRadius: 4, transition: "width .3s ease" }
+    style: { width: p + "%", height: "100%", background: barColor, borderRadius: 99, transition: "width .3s ease" }
   }));
 }
 
-/* ---------- SectionHeading ---------- */
+/* ---------- SectionHeading (tiêu đề trang chuẩn: gọn, không chiếm diện tích) ---------- */
 function SectionHeading({ eyebrow, title, subtitle, action, icon: Icon, iconColor }) {
-  const _iconColor = iconColor || COLORS.copper;
+  const _iconColor = iconColor || COLORS.blue;
   return /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
-      alignItems: "flex-end",
+      alignItems: "center",
       justifyContent: "space-between",
       gap: 16,
-      marginBottom: 22,
+      marginBottom: 16,
       flexWrap: "wrap"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       alignItems: "center",
-      gap: 14
+      gap: 12,
+      minWidth: 0
     }
   }, Icon && /*#__PURE__*/React.createElement("div", {
     style: {
-      width: 52,
-      height: 52,
+      width: 42,
+      height: 42,
       flexShrink: 0,
-      borderRadius: 14,
-      background: `${_iconColor}17`,
-      border: `2px solid ${_iconColor}66`,
-      boxShadow: `0 2px 8px ${_iconColor}22`,
+      borderRadius: 11,
+      background: `${_iconColor}14`,
+      border: `1px solid ${_iconColor}33`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center"
     }
   }, /*#__PURE__*/React.createElement(Icon, {
-    size: 26,
+    size: 21,
     color: _iconColor
-  })), /*#__PURE__*/React.createElement("div", null, eyebrow && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement("div", { style: { minWidth: 0 } }, eyebrow && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(AMG_TYPE.xs),
       fontWeight: 700,
-      letterSpacing: ".05em",
+      letterSpacing: ".06em",
       textTransform: "uppercase",
-      color: COLORS.copper,
-      marginBottom: 5
+      color: COLORS.textFaint,
+      marginBottom: 2
     }
   }, eyebrow), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
-    style: { fontSize: 40, fontWeight: 800, color: COLORS.text, letterSpacing: "-.02em", lineHeight: 1.1 }
+    style: { fontSize: FZ(AMG_TYPE.x2), fontWeight: 800, color: COLORS.text, letterSpacing: "-.02em", lineHeight: 1.15 }
   }, title), subtitle && /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 14, color: COLORS.textDim, marginTop: 6 }
-  }, subtitle))), action && /*#__PURE__*/React.createElement("div", null, action));
+    style: { fontSize: FZ(AMG_TYPE.sm), color: COLORS.textDim, marginTop: 3 }
+  }, subtitle))), action && /*#__PURE__*/React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, action));
 }
 
 /* ---------- EmptyState ---------- */
@@ -220,17 +177,23 @@ function EmptyState({ icon: Icon, title, hint, action }) {
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      padding: "48px 20px",
+      padding: "40px 20px",
       textAlign: "center",
       color: COLORS.textDim
     }
-  }, Icon && /*#__PURE__*/React.createElement(Icon, { size: 30, style: { marginBottom: 12, opacity: .6 } }),
+  }, Icon && /*#__PURE__*/React.createElement(Icon, { size: 28, style: { marginBottom: 10, opacity: .55 } }),
     /*#__PURE__*/React.createElement("div", {
-      style: { fontSize: 14, fontWeight: 700, color: COLORS.text, marginBottom: hint || action ? 6 : 0 }
+      style: { fontSize: FZ(AMG_TYPE.md), fontWeight: 700, color: COLORS.text, marginBottom: hint || action ? 6 : 0 }
     }, title),
     hint && /*#__PURE__*/React.createElement("div", {
-      style: { fontSize: 12.5, maxWidth: 340, marginBottom: action ? 14 : 0 }
+      style: { fontSize: FZ(AMG_TYPE.sm), maxWidth: 380, marginBottom: action ? 14 : 0 }
     }, hint),
     action);
 }
 
+/* ---------- Card có tiêu đề (dùng chung cho Dashboard và các tab) ---------- */
+function PanelCard({ title, icon: Icon, iconColor, note, action, children, flush, style, className }) {
+  return /*#__PURE__*/React.createElement("section", { className: "mes-card dx-card " + (className || ""), style }, (title || action) && /*#__PURE__*/React.createElement("div", { className: "dx-card-h" },
+    /*#__PURE__*/React.createElement("div", { className: "dx-card-t" }, Icon && /*#__PURE__*/React.createElement(Icon, { size: 17, color: iconColor || COLORS.blue, style: { flexShrink: 0 } }), /*#__PURE__*/React.createElement("span", null, title), note && /*#__PURE__*/React.createElement("span", { className: "dx-card-n" }, note)),
+    action), /*#__PURE__*/React.createElement("div", { className: "dx-card-b" + (flush ? " dx-card-b--flush" : "") }, children));
+}

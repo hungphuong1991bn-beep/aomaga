@@ -47,14 +47,14 @@ function DowntimeAddForm({
     style: {
       padding: 18,
       marginBottom: 18,
-      border: `1.5px solid ${COLORS.red}55`,
+      border: `1px solid ${COLORS.red}55`,
       borderTop: `4px solid ${COLORS.red}`,
       boxShadow: `0 2px 8px ${COLORS.red}22`
     }
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 15,
+      fontSize: FZ(15),
       fontWeight: 700,
       marginBottom: 14
     }
@@ -95,11 +95,11 @@ function DowntimeAddForm({
       padding: 14,
       borderRadius: 10,
       background: `${COLORS.red}0d`,
-      border: `1.5px solid ${COLORS.red}40`
+      border: `1px solid ${COLORS.red}40`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       fontWeight: 800,
       color: COLORS.red,
       letterSpacing: ".04em",
@@ -130,11 +130,11 @@ function DowntimeAddForm({
       padding: 14,
       borderRadius: 10,
       background: `${COLORS.green}0d`,
-      border: `1.5px solid ${COLORS.green}40`
+      border: `1px solid ${COLORS.green}40`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       fontWeight: 800,
       color: COLORS.green,
       letterSpacing: ".04em",
@@ -177,7 +177,7 @@ function DowntimeAddForm({
     placeholder: "Mô tả sự cố, linh kiện cần thay, lý do tạm nghỉ..."
   })), msg && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: msg.includes("thành công") ? COLORS.green : COLORS.red,
       marginBottom: 10
     }
@@ -275,7 +275,7 @@ function DowntimeTrackingPage({
       alignItems: "flex-end",
       gap: 10,
       flexWrap: "wrap",
-      border: `1.5px solid ${COLORS.blue}55`,
+      border: `1px solid ${COLORS.blue}55`,
       borderTop: `4px solid ${COLORS.blue}`
     }
   }, /*#__PURE__*/React.createElement(Field, {
@@ -323,7 +323,7 @@ function DowntimeTrackingPage({
   }), " Xuất Excel (", filtered.length, " bản ghi)")), /*#__PURE__*/React.createElement("div", {
     className: "mes-card mes-scroll-x",
     style: {
-      border: `1.5px solid ${COLORS.violet}55`,
+      border: `1px solid ${COLORS.violet}55`,
       borderTop: `4px solid ${COLORS.violet}`
     }
   }, filtered.length === 0 ? /*#__PURE__*/React.createElement(EmptyState, {
@@ -494,7 +494,7 @@ function MachineGroup({
     style: {
       marginBottom: 12,
       overflow: "hidden",
-      border: `1.5px solid ${groupColor}55`,
+      border: `1px solid ${groupColor}55`,
       borderTop: `4px solid ${groupColor}`,
       boxShadow: `0 2px 8px ${groupColor}1a`
     }
@@ -529,7 +529,7 @@ function MachineGroup({
       height: 26,
       borderRadius: 8,
       background: `${groupColor}1f`,
-      border: `1.5px solid ${groupColor}66`,
+      border: `1px solid ${groupColor}66`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
@@ -542,11 +542,11 @@ function MachineGroup({
     className: "mes-display",
     style: {
       fontWeight: 700,
-      fontSize: 14
+      fontSize: FZ(14)
     }
   }, type.label), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       color: COLORS.textFaint
     }
   }, "(", machines.length, " máy)")), /*#__PURE__*/React.createElement("div", {
@@ -594,7 +594,7 @@ function MachineGroup({
     }), /*#__PURE__*/React.createElement("span", {
       className: "mes-mono",
       style: {
-        fontSize: 10.5,
+        fontSize: FZ(12),
         color: COLORS.text
       }
     }, m.id));
@@ -622,7 +622,7 @@ function MachineGroup({
     size: 14
   }), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 10
+      fontSize: FZ(12)
     }
   }, "Thêm máy"))));
 }
@@ -650,7 +650,7 @@ function MachinesPage({
     type,
     machines: filteredMachines.filter(m => m.typeKey === type.key)
   })).filter(g => g.machines.length > 0);
-  return /*#__PURE__*/React.createElement("div", { style: { zoom: 1.5 } }, /*#__PURE__*/React.createElement(SectionHeading, {
+  return /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement(SectionHeading, {
     eyebrow: `${total} máy móc thiết bị`,
     title: "Giám sát hệ thống máy móc thiết bị hoạt động",
     icon: Cog,
@@ -671,14 +671,14 @@ function MachinesPage({
       flex: 1,
       minWidth: 130,
       cursor: "pointer",
-      border: filter === k ? `1.5px solid ${v.color}` : `1.5px solid ${v.color}40`,
+      border: filter === k ? `1px solid ${v.color}` : `1px solid ${v.color}40`,
       borderTop: `4px solid ${v.color}`,
       boxShadow: filter === k ? `0 2px 8px ${v.color}33` : "none",
       textAlign: "left"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11,
+      fontSize: FZ(12),
       color: COLORS.textDim,
       fontWeight: 600,
       marginBottom: 6
@@ -686,7 +686,7 @@ function MachinesPage({
   }, v.label), /*#__PURE__*/React.createElement("div", {
     className: "mes-mono mes-display",
     style: {
-      fontSize: 22,
+      fontSize: FZ(22),
       fontWeight: 700,
       color: v.color
     }

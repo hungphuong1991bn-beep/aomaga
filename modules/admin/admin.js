@@ -67,7 +67,7 @@ function AdminPage({
       style: {
         padding: 20,
         marginBottom: 20,
-        border: `1.5px solid ${COLORS.orange}55`,
+        border: `1px solid ${COLORS.orange}55`,
         borderTop: `4px solid ${COLORS.orange}`,
         boxShadow: `0 2px 8px ${COLORS.orange}22`
       }
@@ -94,7 +94,7 @@ function AdminPage({
     })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
-        fontSize: 10,
+        fontSize: FZ(12),
         color: "#C2410C",
         letterSpacing: ".07em",
         textTransform: "uppercase"
@@ -102,7 +102,7 @@ function AdminPage({
     }, "Đồng bộ đa thiết bị"), /*#__PURE__*/React.createElement("div", {
       className: "mes-display",
       style: {
-        fontSize: 17,
+        fontSize: FZ(16),
         fontWeight: 700
       }
     }, "Kết nối Firebase — chia sẻ dữ liệu thật sự")), getFirebaseUrl() && /*#__PURE__*/React.createElement(Badge, {
@@ -113,7 +113,7 @@ function AdminPage({
         borderRadius: 8,
         padding: "12px 14px",
         marginBottom: 14,
-        fontSize: 12.5,
+        fontSize: FZ(13),
         lineHeight: 1.7
       }
     }, /*#__PURE__*/React.createElement("b", null, "Hướng dẫn thiết lập Firebase (miễn phí, 5 phút):"), /*#__PURE__*/React.createElement("br", null), "1. Vào ", /*#__PURE__*/React.createElement("b", null, "console.firebase.google.com"), " → đăng nhập Google → ", /*#__PURE__*/React.createElement("b", null, "Tạo dự án"), /*#__PURE__*/React.createElement("br", null), "2. Chọn ", /*#__PURE__*/React.createElement("b", null, "Realtime Database"), " → ", /*#__PURE__*/React.createElement("b", null, "Tạo cơ sở dữ liệu"), " → chọn ", /*#__PURE__*/React.createElement("b", null, "Test mode"), /*#__PURE__*/React.createElement("br", null), "3. Copy URL dạng ", /*#__PURE__*/React.createElement("code", {
@@ -129,7 +129,7 @@ function AdminPage({
       placeholder: "https://your-project-default-rtdb.firebaseio.com"
     })), fbStatus && /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12.5,
+        fontSize: FZ(13),
         padding: "8px 12px",
         borderRadius: 8,
         marginBottom: 10,
@@ -170,7 +170,7 @@ function AdminPage({
     style: {
       padding: 20,
       marginBottom: 20,
-      border: `1.5px solid ${COLORS.green}55`,
+      border: `1px solid ${COLORS.green}55`,
       borderTop: `4px solid ${COLORS.green}`,
       boxShadow: `0 2px 8px ${COLORS.green}22`
     }
@@ -197,7 +197,7 @@ function AdminPage({
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10,
+      fontSize: FZ(12),
       color: COLORS.green,
       letterSpacing: ".07em",
       textTransform: "uppercase"
@@ -205,7 +205,7 @@ function AdminPage({
   }, "Phân quyền truy cập"), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 17,
+      fontSize: FZ(16),
       fontWeight: 700
     }
   }, "Chia sẻ đường dẫn cho nhân viên"))), /*#__PURE__*/React.createElement("div", {
@@ -214,7 +214,7 @@ function AdminPage({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13,
+      fontSize: FZ(13),
       fontWeight: 700,
       color: COLORS.text,
       marginBottom: 12
@@ -248,24 +248,24 @@ function AdminPage({
       height: 28,
       borderRadius: 8,
       background: `${item.color}25`,
-      border: `1.5px solid ${item.color}60`,
+      border: `1px solid ${item.color}60`,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       flexShrink: 0,
       fontWeight: 800,
       color: item.color,
-      fontSize: 13
+      fontSize: FZ(13)
     }
   }, item.step), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontWeight: 700,
-      fontSize: 13,
+      fontSize: FZ(13),
       marginBottom: 2
     }
   }, item.title), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: COLORS.textDim,
       lineHeight: 1.5
     }
@@ -275,7 +275,7 @@ function AdminPage({
       border: `1px solid ${COLORS.amber}40`,
       borderRadius: 8,
       padding: "10px 14px",
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: COLORS.amber,
       marginTop: 8
     }
@@ -302,7 +302,7 @@ function AdminPage({
     className: "mes-card mes-scroll-x",
     style: {
       marginBottom: 24,
-      border: `1.5px solid ${COLORS.violet}55`,
+      border: `1px solid ${COLORS.violet}55`,
       borderTop: `4px solid ${COLORS.violet}`,
       boxShadow: `0 2px 8px ${COLORS.violet}22`
     }
@@ -325,13 +325,13 @@ function AdminPage({
   }, u.username), u.username === currentUser.username && /*#__PURE__*/React.createElement("span", {
     style: {
       color: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     }
   }, "(bạn)"), u.username.includes(" ") && /*#__PURE__*/React.createElement("span", {
     title: "Tên đăng nhập có khoảng trắng — cần gõ chính xác khi đăng nhập",
     style: {
       color: COLORS.amber,
-      fontSize: 11
+      fontSize: FZ(12)
     }
   }, "⚠️"))), /*#__PURE__*/React.createElement("td", null, u.fullName), /*#__PURE__*/React.createElement("td", null, /*#__PURE__*/React.createElement(Badge, {
     color: u.role === "admin" ? COLORS.copper : u.role === "manager" ? COLORS.violet : COLORS.blue
@@ -367,13 +367,13 @@ function AdminPage({
       justifyContent: "space-between",
       gap: 14,
       flexWrap: "wrap",
-      border: `1.5px solid ${COLORS.red}55`,
+      border: `1px solid ${COLORS.red}55`,
       borderTop: `4px solid ${COLORS.red}`,
       boxShadow: `0 2px 8px ${COLORS.red}22`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: COLORS.textDim,
       maxWidth: 520
     }
@@ -427,7 +427,7 @@ function AdminPage({
     style: {
       maxHeight: 420,
       overflowY: "auto",
-      border: `1.5px solid ${COLORS.blue}55`,
+      border: `1px solid ${COLORS.blue}55`,
       borderTop: `4px solid ${COLORS.blue}`,
       boxShadow: `0 2px 8px ${COLORS.blue}22`
     }
@@ -443,7 +443,7 @@ function AdminPage({
     style: {
       whiteSpace: "nowrap",
       color: COLORS.textFaint,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, fmtDateTime(a.ts)), /*#__PURE__*/React.createElement("td", {
     style: {

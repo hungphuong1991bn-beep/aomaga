@@ -61,7 +61,7 @@ function OrderHistoryList({
     style: {
       borderLeft: `2px solid ${COLORS.border}`,
       paddingLeft: 10,
-      fontSize: 12.5
+      fontSize: FZ(13)
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
@@ -70,7 +70,7 @@ function OrderHistoryList({
   }, e.detail), /*#__PURE__*/React.createElement("div", {
     style: {
       color: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     }
   }, e.user, " · ", fmtDateTime(e.ts)))));
 }

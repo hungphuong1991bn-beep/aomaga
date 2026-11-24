@@ -26,7 +26,7 @@ function amgComputeAlerts({ orders, machines, attendance, now, extra }) {
   const today = new Date((now || new Date()).toDateString()).getTime();
   const late = [], soon = [];
   (orders || []).forEach(o => {
-    if (!o.deliveryDate) return;
+    if (!o.deliveryDate || o.status === "completed") return;
     const t = new Date(o.deliveryDate + "T00:00:00").getTime();
     if (Number.isNaN(t)) return;
     if (orderProgress(normalizeOrderStages(o)).statusLabel === "Hoàn thành") return;

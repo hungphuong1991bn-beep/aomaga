@@ -1,8 +1,8 @@
-/* Service Worker v47.
+/* Service Worker v48.
    - Mã ứng dụng (cùng nguồn): MẠNG TRƯỚC, cache dự phòng khi mất mạng → người dùng luôn nhận bản mới nhất khi có mạng.
    - Thư viện CDN (đã ghim đúng phiên bản): cache trước.
    - Bản mới KHÔNG tự thay thế giữa chừng khi đang nhập liệu: chờ người dùng bấm "Tải lại" trên thanh thông báo. */
-const V = 'mes-v47-modular';
+const V = 'mes-v49-modular';
 const CDN = [
   'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
@@ -37,6 +37,7 @@ const APP = [
   './domain/alerts.js',
   './domain/kpi.js',
   './domain/flow.js',
+  './domain/executive.js',
   './data/useAppData.js',
   './data/useExtraData.js',
   './data/flowdata.js',
@@ -81,7 +82,7 @@ const APP = [
 self.addEventListener('install', e => e.waitUntil(
   caches.open(V).then(c => Promise.allSettled([
     ...CDN.map(u => c.add(u).catch(() => {})),
-    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=47' : '')).catch(() => {})),
+    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=49' : '')).catch(() => {})),
   ]))
 ));
 self.addEventListener('message', e => {

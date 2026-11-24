@@ -11,7 +11,7 @@ function ChartCard({
     className: "mes-card",
     style: {
       padding: 18,
-      border: `1.5px solid ${accent}55`,
+      border: `1px solid ${accent}55`,
       borderTop: `4px solid ${accent}`,
       boxShadow: `0 2px 8px ${accent}22`
     }
@@ -22,7 +22,7 @@ function ChartCard({
   }, eyebrow && /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10.5,
+      fontSize: FZ(12),
       color: COLORS.copper,
       letterSpacing: ".07em",
       textTransform: "uppercase",
@@ -31,7 +31,7 @@ function ChartCard({
   }, eyebrow), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 14.5,
+      fontSize: FZ(14),
       fontWeight: 700
     }
   }, title)), /*#__PURE__*/React.createElement(ResponsiveContainer, {
@@ -356,7 +356,7 @@ function ProductionEntriesManager({
     color: COLORS.copper
   }), /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 13,
+      fontSize: FZ(13),
       fontWeight: 700,
       color: COLORS.copperBright
     }
@@ -430,7 +430,7 @@ function KeoTrungSummaryTable({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13,
+      fontSize: FZ(13),
       fontWeight: 700,
       color: COLORS.text,
       marginBottom: 8
@@ -488,7 +488,7 @@ function KeoTrungSummaryTable({
       textAlign: "right",
       fontWeight: 800,
       color: COLORS.copperBright,
-      fontSize: 16,
+      fontSize: FZ(16),
       borderTop: `2px solid ${COLORS.border}`
     }
   }, fmtNum(agg.totalKg)))))));
@@ -643,7 +643,7 @@ function ReportsPage({
     dataKey: "name",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -652,7 +652,7 @@ function ReportsPage({
   }), /*#__PURE__*/React.createElement(YAxis, {
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false
@@ -661,7 +661,7 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     },
     labelFormatter: (l, p) => p?.[0]?.payload?.fullName || l
   }), /*#__PURE__*/React.createElement(Bar, {
@@ -689,11 +689,11 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Legend, {
     wrapperStyle: {
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.textDim
     }
   })))), /*#__PURE__*/React.createElement("div", {
@@ -719,7 +719,7 @@ function ReportsPage({
     type: "number",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -731,7 +731,7 @@ function ReportsPage({
     width: 150,
     tick: {
       fill: COLORS.text,
-      fontSize: 12
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false
@@ -740,11 +740,11 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Legend, {
     wrapperStyle: {
-      fontSize: 11.5
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Bar, {
     dataKey: "Đã làm",
@@ -783,7 +783,7 @@ function ReportsPage({
     unit: "%",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -795,7 +795,7 @@ function ReportsPage({
     width: 220,
     tick: {
       fill: COLORS.text,
-      fontSize: 11.5
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false
@@ -804,7 +804,7 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     },
     formatter: (value, name, props) => [`${value}% — ${props.payload.statusLabel}`, "Tiến độ"]
   }), /*#__PURE__*/React.createElement(Bar, {
@@ -839,7 +839,7 @@ function ReportsPage({
     className: "mes-card",
     style: {
       padding: 18,
-      border: `1.5px solid ${COLORS.copper}55`,
+      border: `1px solid ${COLORS.copper}55`,
       borderTop: `4px solid ${COLORS.copper}`,
       boxShadow: `0 2px 8px ${COLORS.copper}22`
     }
@@ -855,7 +855,7 @@ function ReportsPage({
   }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10.5,
+      fontSize: FZ(12),
       color: COLORS.copper,
       letterSpacing: ".07em",
       textTransform: "uppercase",
@@ -864,7 +864,7 @@ function ReportsPage({
   }, "Máy kéo trung · ", fmtNum(keoTrungByMaterial.totalKg), " kg đã chạy qua (", keoTrungByMaterial.entryCount, " lượt ghi nhận)"), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 14.5,
+      fontSize: FZ(14),
       fontWeight: 700
     }
   }, "Sản lượng Kéo trung theo mã nguyên liệu (A/B/C...)")), /*#__PURE__*/React.createElement("div", {
@@ -878,7 +878,7 @@ function ReportsPage({
     onClick: () => setKeoTrungGranularity(k),
     className: "mes-btn",
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       padding: "6px 12px",
       borderColor: keoTrungGranularity === k ? COLORS.copper : COLORS.border,
       background: keoTrungGranularity === k ? `${COLORS.copper}22` : COLORS.bgPanel2,
@@ -895,7 +895,7 @@ function ReportsPage({
     }),
     className: "mes-btn",
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       padding: "6px 12px",
       borderColor: COLORS.green,
       background: `${COLORS.green}1c`,
@@ -920,7 +920,7 @@ function ReportsPage({
     dataKey: "label",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -929,7 +929,7 @@ function ReportsPage({
   }), /*#__PURE__*/React.createElement(YAxis, {
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false,
@@ -939,11 +939,11 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Legend, {
     wrapperStyle: {
-      fontSize: 11.5
+      fontSize: FZ(12)
     }
   }), keoTrungByMaterial.materials.map((mat, i) => /*#__PURE__*/React.createElement(Bar, {
     key: mat,
@@ -983,7 +983,7 @@ function ReportsPage({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.red,
       textTransform: "uppercase",
@@ -1016,7 +1016,7 @@ function ReportsPage({
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.red,
       textTransform: "uppercase",
@@ -1052,7 +1052,7 @@ function ReportsPage({
     dataKey: "ky",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 10.5
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -1062,7 +1062,7 @@ function ReportsPage({
   }), /*#__PURE__*/React.createElement(YAxis, {
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false
@@ -1071,11 +1071,11 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Legend, {
     wrapperStyle: {
-      fontSize: 11.5
+      fontSize: FZ(12)
     }
   }), isStageVisible("keo_tinh") && /*#__PURE__*/React.createElement(Line, {
     type: "monotone",
@@ -1130,7 +1130,7 @@ function ReportsPage({
     dataKey: "date",
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: {
       stroke: COLORS.border
@@ -1139,7 +1139,7 @@ function ReportsPage({
   }), /*#__PURE__*/React.createElement(YAxis, {
     tick: {
       fill: COLORS.textFaint,
-      fontSize: 11
+      fontSize: FZ(12)
     },
     axisLine: false,
     tickLine: false
@@ -1148,7 +1148,7 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Area, {
     type: "monotone",
@@ -1177,11 +1177,11 @@ function ReportsPage({
       background: COLORS.bgPanel2,
       border: `1px solid ${COLORS.border}`,
       borderRadius: 8,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }), /*#__PURE__*/React.createElement(Legend, {
     wrapperStyle: {
-      fontSize: 12,
+      fontSize: FZ(12),
       color: COLORS.textDim
     }
   })))), (() => {
@@ -1244,7 +1244,7 @@ function ReportsPage({
       className: "mes-card",
       style: {
         padding: 18,
-        border: `1.5px solid ${s.color}55`,
+        border: `1px solid ${s.color}55`,
         borderTop: `4px solid ${s.color}`,
         boxShadow: `0 2px 8px ${s.color}22`
       }
@@ -1260,7 +1260,7 @@ function ReportsPage({
     }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.copper,
         letterSpacing: ".07em",
         textTransform: "uppercase",
@@ -1269,7 +1269,7 @@ function ReportsPage({
     }, "Công đoạn"), /*#__PURE__*/React.createElement("div", {
       className: "mes-display",
       style: {
-        fontSize: 18,
+        fontSize: FZ(18),
         fontWeight: 700
       }
     }, s.label)), /*#__PURE__*/React.createElement("div", {
@@ -1284,14 +1284,14 @@ function ReportsPage({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.textFaint
       }
     }, "Sản lượng"), /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
         fontWeight: 700,
-        fontSize: 18,
+        fontSize: FZ(18),
         color: COLORS.green
       }
     }, fmtNum(production), " kg")), /*#__PURE__*/React.createElement("div", {
@@ -1300,14 +1300,14 @@ function ReportsPage({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.textFaint
       }
     }, "Phế liệu"), /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
         fontWeight: 700,
-        fontSize: 18,
+        fontSize: FZ(18),
         color: COLORS.red
       }
     }, fmtNum(scrapQty), " kg")), /*#__PURE__*/React.createElement("div", {
@@ -1316,14 +1316,14 @@ function ReportsPage({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.textFaint
       }
     }, "Tỷ lệ phế"), /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
         fontWeight: 700,
-        fontSize: 18,
+        fontSize: FZ(18),
         color: scrapColor
       }
     }, pctScrap !== null ? pctScrap + "%" : "—")))), /*#__PURE__*/React.createElement("div", {
@@ -1334,7 +1334,7 @@ function ReportsPage({
       }
     }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12,
+        fontSize: FZ(12),
         color: COLORS.textDim,
         fontWeight: 600,
         marginBottom: 8
@@ -1356,7 +1356,7 @@ function ReportsPage({
       type: "number",
       tick: {
         fill: COLORS.textFaint,
-        fontSize: 10
+        fontSize: FZ(12)
       },
       axisLine: {
         stroke: COLORS.border
@@ -1368,7 +1368,7 @@ function ReportsPage({
       width: 90,
       tick: {
         fill: COLORS.text,
-        fontSize: 11
+        fontSize: FZ(12)
       },
       axisLine: false,
       tickLine: false
@@ -1377,7 +1377,7 @@ function ReportsPage({
         background: COLORS.bgPanel2,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 8,
-        fontSize: 12
+        fontSize: FZ(12)
       }
     }), /*#__PURE__*/React.createElement(Bar, {
       dataKey: "value",
@@ -1386,7 +1386,7 @@ function ReportsPage({
       name: "Sản lượng (kg)"
     })))), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12,
+        fontSize: FZ(12),
         color: COLORS.textDim,
         fontWeight: 600,
         marginBottom: 8
@@ -1408,7 +1408,7 @@ function ReportsPage({
       dataKey: "date",
       tick: {
         fill: COLORS.textFaint,
-        fontSize: 10
+        fontSize: FZ(12)
       },
       axisLine: {
         stroke: COLORS.border
@@ -1417,7 +1417,7 @@ function ReportsPage({
     }), /*#__PURE__*/React.createElement(YAxis, {
       tick: {
         fill: COLORS.textFaint,
-        fontSize: 10
+        fontSize: FZ(12)
       },
       axisLine: false,
       tickLine: false
@@ -1426,7 +1426,7 @@ function ReportsPage({
         background: COLORS.bgPanel2,
         border: `1px solid ${COLORS.border}`,
         borderRadius: 8,
-        fontSize: 12
+        fontSize: FZ(12)
       }
     }), /*#__PURE__*/React.createElement(Area, {
       type: "monotone",

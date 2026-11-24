@@ -28,7 +28,7 @@ function DialogProvider({ children }) {
     onClose: () => close(state.type === "confirm" ? false : undefined),
     width: 420
   }, /*#__PURE__*/React.createElement("div", {
-    style: { fontSize: 13.5, color: COLORS.text, lineHeight: 1.6, marginBottom: 20, whiteSpace: "pre-wrap" }
+    style: { fontSize: FZ(14), color: COLORS.text, lineHeight: 1.6, marginBottom: 20, whiteSpace: "pre-wrap" }
   }, state.message), /*#__PURE__*/React.createElement("div", {
     style: { display: "flex", gap: 10, justifyContent: "flex-end" }
   }, state.type === "confirm" && /*#__PURE__*/React.createElement(Button, {

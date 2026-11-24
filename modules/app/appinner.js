@@ -21,7 +21,7 @@ function LoadingScreen() {
     }
   }), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 13
+      fontSize: FZ(13)
     }
   }, "Đang tải dữ liệu hệ thống...")));
 }
@@ -52,8 +52,11 @@ function AppInner() {
   const kioskPrevTab = React.useRef("dashboard");
   const kioskStepIndex = React.useRef(0);
   const activeTabRef = React.useRef(activeTab);
+  const scrollRef = React.useRef(null);
   useEffect(() => {
     activeTabRef.current = activeTab;
+    // Đổi tab: vùng nội dung về đầu trang (Sidebar giữ nguyên vị trí cuộn của nó)
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
   }, [activeTab]);
   const kioskModeRef = React.useRef(false);
   useEffect(() => {
@@ -118,6 +121,8 @@ function AppInner() {
   const canEditMachines = amgCan(currentUser, "s", "may");     // cập nhật trạng thái máy: cả Nhân viên
   // Alias dùng trong các handler bên dưới (đơn hàng luôn lấy từ dữ liệu mới nhất qua onSnapshot)
   const baseOrders = data.orders;
+  // v48: MỘT nguồn dữ liệu đơn (data.orders, onSnapshot). Danh sách "đang hoạt động" chỉ là bộ lọc status — không xóa/nhân bản đơn.
+  const activeOrders = baseOrders.filter(amgIsActiveOrder);
   function audit(type, detail, targetId, extra) {
     const id = uid("AL");
     db.collection(FS.audit).doc(id).set({
@@ -279,6 +284,7 @@ function AppInner() {
   async function handleUpdateOrder(updated, opts) {
     const o2 = opts || {};
     await amgSafeUpdate(FS.orders, updated.id, cur => {
+      if (cur.status === "completed") throw new Error("Đơn đã hoàn thành — chỉ xem được. Mở lại đơn ở tab Đơn hàng hoàn thành (cần quyền quản lý) trước khi sửa đơn/BOM.");
       const merged = { ...cur };
       Object.keys(updated).forEach(k => { if (AMG_ORDER_PROTECTED.indexOf(k) < 0) merged[k] = updated[k]; });
       if (o2.overrideStages && updated.stages) merged.stages = updated.stages;
@@ -290,6 +296,7 @@ function AppInner() {
     // onSnapshot keeps data.orders fresh
     // Lưu ý: persistOrders (_batch) chỉ set/merge, KHÔNG xoá — phải xoá doc trực tiếp
     const o = baseOrders.find(x => x.id === id);
+    if (o && o.status === "completed") throw new Error(`Đơn ${id} đã hoàn thành — không xóa để bảo toàn lưu trữ.`);
     // Không xóa đơn đã có lệnh máy: xóa đơn sẽ để lại lệnh mồ côi giữ khóa máy và làm mất lịch sử sản xuất
     const rr = amgRunsOfOrder(flow.runs, id);
     if (rr.length) throw new Error(`Đơn ${id} đã có ${rr.length} lệnh máy (${rr.slice(0, 4).map(r => r.machineId).join(", ")}) nên không thể xóa để bảo toàn lịch sử sản xuất.`);
@@ -544,6 +551,7 @@ function AppInner() {
     downtime: "Theo dõi thời gian dừng máy",
     qc: "Chất lượng & phế liệu",
     staff: "Nhân sự",
+    certificates: "Chứng nhận ISO - UL",
     reports: "Báo cáo & biểu đồ",
     ops: "Điều hành sản xuất",
     warehouse: "Kho & nguyên liệu",
@@ -556,13 +564,11 @@ function AppInner() {
     trace: "Truy xuất & toàn vẹn",
     admin: "Quản trị hệ thống"
   };
+  const navMeta = amgNavMeta(activeTab);
   return /*#__PURE__*/React.createElement("div", {
     className: "mes-root"
   }, /*#__PURE__*/React.createElement(GlobalStyle, null), /*#__PURE__*/React.createElement("div", {
-    className: "mes-app-shell",
-    style: {
-      display: "flex"
-    }
+    className: "mes-app-shell"
   }, mobileNavOpen && /*#__PURE__*/React.createElement("div", {
     className: "mes-sidebar-overlay",
     onClick: () => setMobileNavOpen(false)
@@ -579,10 +585,7 @@ function AppInner() {
     mobileOpen: mobileNavOpen,
     onCloseMobile: () => setMobileNavOpen(false)
   }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      flex: 1,
-      minWidth: 0
-    }
+    className: "mes-main"
   }, kioskMode && /*#__PURE__*/React.createElement("div", {
     style: {
       position: "fixed",
@@ -597,7 +600,7 @@ function AppInner() {
       alignItems: "center",
       justifyContent: "center",
       gap: 10,
-      fontSize: 13,
+      fontSize: FZ(AMG_TYPE.md),
       fontWeight: 700,
       boxShadow: "0 2px 10px rgba(0,0,0,.25)"
     }
@@ -608,19 +611,25 @@ function AppInner() {
     currentUser: currentUser,
     onLogout: () => setCurrentUser(null),
     pageTitle: pageTitles[activeTab],
+    groupLabel: navMeta.group,
     onRefresh: data.refreshAll,
     onOpenMobileNav: () => setMobileNavOpen(true),
     theme: theme,
     onToggleTheme: toggleTheme,
-    alerts: amgComputeAlerts({ orders: data.orders, machines: data.machines, attendance: data.attendance, extra }),
+    orders: activeOrders,
+    machines: data.machines,
+    attendance: data.attendance,
+    extra: extra,
     onNavigate: setActiveTab
-  }), /*#__PURE__*/React.createElement("div", {
-    className: "mes-content-wrap",
-    style: {
-      padding: 22,
-      maxWidth: 1320,
-      margin: "0 auto"
-    }
+  }), /*#__PURE__*/React.createElement("main", {
+    className: "mes-content-scroll",
+    ref: scrollRef,
+    id: "mes-main"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mes-content-wrap"
+  }, /*#__PURE__*/React.createElement("div", {
+    className: "mes-page",
+    key: activeTab
   }, activeTab === "dashboard" && /*#__PURE__*/React.createElement(DashboardPage, {
     currentUser: currentUser,
     attendance: data.attendance,
@@ -631,6 +640,9 @@ function AppInner() {
     staff: data.staff,
     scrap: data.scrap,
     auditLog: data.auditLog,
+    runs: flow.runs,
+    entries: flow.entries,
+    extra: extra,
     onQuickEntry: handleQuickEntry,
     onKeoTrungEntry: handleKeoTrungEntry,
     onEditKeoTrung: handleEditProductionEntry,
@@ -640,7 +652,9 @@ function AppInner() {
     extra,
     runs: flow.runs,
     machines: data.machines,
-    orders: data.orders,
+    orders: activeOrders,
+    completedCount: baseOrders.length - activeOrders.length,
+    onNavigate: setActiveTab,
     auditLog: data.auditLog,
     isAdmin: isAdmin,
     currentUser: currentUser,
@@ -660,6 +674,8 @@ function AppInner() {
     currentUser: currentUser,
     isAdmin: isAdmin,
     canEdit: canEditMachines,
+    onUpdateOrder: handleUpdateOrder,
+    onNavigate: setActiveTab,
     onUpdateMachine: handleUpdateMachine,
     onAddMachine: handleAddMachine,
     onDeleteMachine: handleDeleteMachine,
@@ -744,5 +760,5 @@ function AppInner() {
     onUpdateUser: handleUpdateUser,
     onDeleteUser: handleDeleteUser,
     onResetSeedData: handleResetSeedData
-  })))));
+  })))))));
 }

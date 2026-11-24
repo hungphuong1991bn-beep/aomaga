@@ -43,12 +43,12 @@ function Pager({ total, page, pageSize, onPage, onSize, sizes }) {
   const pg = amgPaginate({ length: total, slice: () => [] }, page, pageSize);
   const btn = (label, target, disabled, active, key) => rkh("button", { key: key || label, type: "button", disabled, onClick: () => onPage(target), className: "amg-pg" + (active ? " amg-pg--on" : "") }, label);
   return rkh("div", { className: "mes-no-print amg-pager" },
-    rkh("div", { style: { fontSize: 12.5, color: COLORS.textDim } }, total === 0 ? "Không có dòng nào" : `Hiển thị ${pg.from + 1}–${pg.to} / ${total}`),
+    rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, total === 0 ? "Không có dòng nào" : `Hiển thị ${pg.from + 1}–${pg.to} / ${total}`),
     rkh("div", { style: { display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" } },
       btn("‹", pg.page - 1, pg.page <= 1, false, "prev"),
       amgPageButtons(pg.page, pg.pages).map((n, i) => (n === "…" ? rkh("span", { key: "e" + i, style: { color: COLORS.textFaint, padding: "0 2px" } }, "…") : btn(String(n), n, false, n === pg.page, "p" + n))),
       btn("›", pg.page + 1, pg.page >= pg.pages, false, "next")),
-    rkh("label", { style: { fontSize: 12.5, color: COLORS.textDim, display: "flex", alignItems: "center", gap: 6 } }, "Số dòng/trang",
+    rkh("label", { style: { fontSize: FZ(13), color: COLORS.textDim, display: "flex", alignItems: "center", gap: 6 } }, "Số dòng/trang",
       rkh("select", { className: "mes-input", style: { width: "auto", padding: "5px 8px" }, value: pageSize, onChange: e => onSize(Number(e.target.value)) }, (sizes || AMG_PAGE_SIZES).map(n => rkh("option", { key: n, value: n }, n)))));
 }
 // Văn bản dài: cắt gọn tối đa n dòng, rê chuột xem đủ nội dung (title) — không phá bố cục

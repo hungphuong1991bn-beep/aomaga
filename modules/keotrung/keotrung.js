@@ -127,7 +127,7 @@ function KeoTrungPage({
     className: "mes-card",
     style: {
       padding: 18,
-      border: `1.5px solid ${COLORS.copper}55`,
+      border: `1px solid ${COLORS.copper}55`,
       borderTop: `4px solid ${COLORS.copper}`,
       boxShadow: `0 2px 8px ${COLORS.copper}22`
     }
@@ -164,7 +164,7 @@ function KeoTrungPage({
   })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10.5,
+      fontSize: FZ(12),
       color: COLORS.copper,
       letterSpacing: ".08em",
       textTransform: "uppercase",
@@ -173,7 +173,7 @@ function KeoTrungPage({
   }, "Công đoạn Kéo trung"), /*#__PURE__*/React.createElement("div", {
     className: "mes-display",
     style: {
-      fontSize: 20,
+      fontSize: FZ(20),
       fontWeight: 700,
       letterSpacing: "-0.02em"
     }
@@ -199,7 +199,7 @@ function KeoTrungPage({
     style: {
       flex: 1,
       justifyContent: "center",
-      fontSize: 15,
+      fontSize: FZ(15),
       fontWeight: 700,
       borderColor: materialCode === g ? COLORS.copper : COLORS.border,
       background: materialCode === g ? `${COLORS.copper}22` : COLORS.bgPanel2,
@@ -254,7 +254,7 @@ function KeoTrungPage({
     value: c
   })))), /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 11.5,
+      fontSize: FZ(12),
       color: wireType === "Dây ủ mềm" ? COLORS.amber : COLORS.blue,
       marginTop: 4
     }
@@ -296,7 +296,7 @@ function KeoTrungPage({
     value: "Ca đêm"
   }, "Ca đêm")))), msg && /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12.5,
+      fontSize: FZ(13),
       color: msg.includes("thành công") ? COLORS.green : COLORS.red,
       marginBottom: 10
     }
@@ -319,13 +319,13 @@ function KeoTrungPage({
     className: "mes-card",
     style: {
       padding: 16,
-      border: `1.5px solid ${COLORS.green}55`,
+      border: `1px solid ${COLORS.green}55`,
       borderTop: `4px solid ${COLORS.green}`,
       boxShadow: `0 2px 8px ${COLORS.green}22`
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
-      fontSize: 12,
+      fontSize: FZ(12),
       fontWeight: 700,
       color: COLORS.textDim,
       textTransform: "uppercase",
@@ -354,7 +354,7 @@ function KeoTrungPage({
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
-      fontSize: 13,
+      fontSize: FZ(13),
       fontWeight: 600
     }
   }, s.label), /*#__PURE__*/React.createElement("span", {
@@ -400,7 +400,7 @@ function KeoTrungPage({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12,
+        fontSize: FZ(12),
         fontWeight: 700,
         color: COLORS.amber
       }
@@ -410,14 +410,14 @@ function KeoTrungPage({
       }
     }, /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 10.5,
+        fontSize: FZ(12),
         color: COLORS.textFaint,
         marginBottom: 1
       }
     }, "Tổng cần kéo"), /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
       style: {
-        fontSize: 15,
+        fontSize: FZ(15),
         fontWeight: 800,
         color: COLORS.copperBright
       }
@@ -426,7 +426,7 @@ function KeoTrungPage({
       style: {
         display: "flex",
         justifyContent: "space-between",
-        fontSize: 12.5,
+        fontSize: FZ(13),
         padding: "5px 0",
         borderBottom: `1px solid ${COLORS.border}`
       }
@@ -442,7 +442,7 @@ function KeoTrungPage({
       }
     }, "Còn ", fmtNum(o._remainingNeed), " kg"))), needList.length > 4 && /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 11,
+        fontSize: FZ(12),
         color: COLORS.textFaint,
         marginTop: 4
       }
@@ -450,7 +450,7 @@ function KeoTrungPage({
       style: {
         display: "flex",
         justifyContent: "space-between",
-        fontSize: 12.5,
+        fontSize: FZ(13),
         padding: "7px 0 0",
         borderTop: `2px solid ${COLORS.border}`,
         marginTop: 4
@@ -471,7 +471,7 @@ function KeoTrungPage({
     className: "mes-card",
     style: {
       padding: 18,
-      border: `1.5px solid ${COLORS.copper}40`,
+      border: `1px solid ${COLORS.copper}40`,
       borderTop: `4px solid ${COLORS.copper}`
     }
   }, /*#__PURE__*/React.createElement("button", {
@@ -528,7 +528,7 @@ function KeoTrungPage({
     style: {
       color: COLORS.amber,
       marginLeft: 6,
-      fontSize: 12
+      fontSize: FZ(12)
     }
   }, "(", e.customer, ")")), /*#__PURE__*/React.createElement("td", {
     className: "mes-mono",
@@ -544,7 +544,7 @@ function KeoTrungPage({
   }, e.note || "—", fmtTime(e.ts) && /*#__PURE__*/React.createElement("div", {
     className: "mes-mono",
     style: {
-      fontSize: 10.5,
+      fontSize: FZ(12),
       color: COLORS.textFaint
     }
   }, fmtTime(e.ts))), /*#__PURE__*/React.createElement("td", {
