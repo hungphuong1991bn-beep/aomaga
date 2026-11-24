@@ -13,10 +13,10 @@ const AMG_EXEC_RISK_GAP = 15;           // chậm hơn tiến độ tuyến tín
 
 function amgExecScope(user) {
   const power = amgIsPower(user);
-  const stages = power ? null : (TEAM_REPORT_STAGES[user && user.team] || null);
+  const stages = null; // v49: mọi tài khoản xem toàn nhà máy; quyền nhập/sửa vẫn theo ma trận phân quyền
   const can = m => power || amgCan(user, "v", m);
   return {
-    power, stages, team: !power && user ? user.team || "" : "",
+    power, stages, team: "",
     can: { orders: can("don"), plan: can("dieuhanh"), machines: can("may"), quality: can("qc"), hr: can("nhansu"), warehouse: can("kho"), maint: can("dung") }
   };
 }

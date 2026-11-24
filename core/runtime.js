@@ -28,65 +28,295 @@ const {
   Legend
 } = window.Recharts || {};
 /* ═══════════════════════════════════════════════════════════════
-   ★  OFFLINE DATA LAYER — MiniFirestore shim (localStorage)  ★
-   Khi CHƯA điền Firebase config (mặc định), window.__db là null,
-   nhưng useAppData() và rất nhiều handler trong file này gọi thẳng
-   db.collection(...).doc(...).set/update/onSnapshot(...) mà không
-   kiểm tra null ⇒ app crash ngay khi mount (đúng lỗi "treo ở màn
-   khởi động" trong ảnh chụp). Thay vì sửa từng nơi gọi db.* rải rác
-   khắp file (rủi ro sót rất cao), ta giả lập một API tương thích
-   Firestore (collection/doc/onSnapshot/batch...) nhưng lưu bằng
-   localStorage, để MỌI đoạn code hiện có chạy đúng như thiết kế ban
-   đầu, kể cả khi không kết nối Firebase (đúng như comment gốc trong
-   index.html: "Bỏ trống = chạy offline với localStorage").
+   ★  LỚP DỮ LIỆU — Firebase Realtime Database (REST + SSE)  ★
+   Thay hoàn toàn Firestore + Firebase Authentication cũ.
+   - Giữ nguyên API giống Firestore (collection/doc/onSnapshot/batch...) để
+     toàn bộ mã ứng dụng hiện có chạy không cần sửa.
+   - Dữ liệu nằm dưới nút /amg/<bộ sưu tập>/<mã tài liệu> trên Realtime Database.
+     Mỗi tài liệu lưu dạng { d: "<JSON>", t: <ms> } để giữ đúng kiểu dữ liệu
+     (mảng rỗng, null, đối tượng lồng nhau — RTDB gốc sẽ làm rơi các giá trị này).
+   - Đọc: một luồng SSE (EventSource) tới /amg.json → mọi thiết bị thấy thay đổi tức thì.
+   - Ghi: ghi vào bộ nhớ + localStorage ngay, rồi gửi PATCH nhiều đường dẫn (nguyên tử).
+     Mất mạng: thay đổi được xếp hàng, tự gửi lại khi có mạng.
+   - Đăng nhập: dùng tài khoản băm SHA-256 lưu trong bộ sưu tập "users" (không dùng Firebase Auth).
+   Cờ window.__isOfflineDb = true được giữ nguyên tên để các màn hình đăng nhập/tài khoản
+   chạy nhánh "tài khoản cục bộ" (không Auth, không giao dịch phía máy chủ).
 ═══════════════════════════════════════════════════════════════ */
-(function setupOfflineDb() {
-  if (window.__db) return; // Đã cấu hình Firebase thật → dùng Firestore, bỏ qua shim này
-  var STORAGE_KEY = "amg_mes_offline_db_v1";
+const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.firebasedatabase.app";
+(function setupRtdbDb() {
+  var BASE = AMG_RTDB_URL.replace(/\/+$/, "");
+  var ROOT = "amg";
+  var CACHE_KEY = "amg_mes_rtdb_cache_v1";
+  var QUEUE_KEY = "amg_mes_rtdb_queue_v1";
+  var NO_CACHE = { certificates: true }; // ảnh/PDF chứng chỉ quá nặng cho localStorage
+  var ROOT_URL = BASE + "/" + ROOT + ".json";
 
-  function loadAll() {
+  /* ---------- Trạng thái kết nối + thanh thông báo ---------- */
+  var status = { state: "connecting", pending: 0, lastSync: 0, readError: "", writeError: "" };
+  var statusSubs = [];
+  var ready = false, readyCbs = [];
+  var bannerEl = null;
+  function updateBanner() {
     try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch (e) { return {}; }
+      var msg = "";
+      if (!ready && status.state !== "error") msg = "Đang kết nối máy chủ dữ liệu… (lần đầu cần có mạng)";
+      else if (status.readError) msg = status.readError;
+      else if (status.writeError) msg = status.writeError;
+      else if (status.state === "offline") msg = "Mất kết nối — đang dùng dữ liệu lưu trên máy" + (status.pending ? " (" + status.pending + " thay đổi chờ gửi)" : "") + ". Sẽ tự đồng bộ khi có mạng.";
+      if (!document.body) return;
+      if (!msg) { if (bannerEl) { bannerEl.remove(); bannerEl = null; } return; }
+      if (!bannerEl) {
+        bannerEl = document.createElement("div");
+        bannerEl.style.cssText = "position:fixed;left:50%;bottom:12px;transform:translateX(-50%);max-width:92vw;z-index:99999;background:#1f2937;color:#fff;padding:8px 14px;border-radius:8px;font:13px/1.4 system-ui,sans-serif;box-shadow:0 2px 10px rgba(0,0,0,.35);text-align:center";
+        document.body.appendChild(bannerEl);
+      }
+      bannerEl.textContent = msg;
+    } catch (e) {}
   }
-  function saveAll(all) {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); } catch (e) {
-      console.warn("Không thể ghi localStorage:", e.message);
+  function setStatus(p) {
+    Object.assign(status, p);
+    statusSubs.slice().forEach(function (f) { try { f(status); } catch (e) {} });
+    updateBanner();
+  }
+  window.__rtdbStatus = status;
+  window.__rtdbSubscribe = function (fn) {
+    statusSubs.push(fn);
+    return function () { statusSubs = statusSubs.filter(function (f) { return f !== fn; }); };
+  };
+
+  /* ---------- Mã hoá khoá (RTDB cấm . $ # [ ] /) ---------- */
+  function encKey(s) {
+    return String(s).replace(/[%.$#\[\]\/\u0000-\u001f\u007f]/g, function (c) {
+      return "%" + ("0" + c.charCodeAt(0).toString(16).toUpperCase()).slice(-2);
+    });
+  }
+  function decKey(s) {
+    return String(s).replace(/%([0-9A-F]{2})/g, function (m, h) { return String.fromCharCode(parseInt(h, 16)); });
+  }
+  function pathOf(col, id) { return encKey(col) + "/" + encKey(id); }
+
+  /* ---------- Kho dữ liệu trong bộ nhớ (+ bản lưu localStorage) ---------- */
+  function loadJson(key, fallback) {
+    try { var r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; } catch (e) { return fallback; }
+  }
+  var data = loadJson(CACHE_KEY, {});
+  if (!data || typeof data !== "object" || Array.isArray(data)) data = {};
+  var raws = {}; // "col/id" -> chuỗi JSON đã biết trên máy chủ (để bỏ qua bản lặp)
+  var hadCache = Object.keys(data).some(function (c) { return Object.keys(data[c] || {}).length > 0; });
+  var saveTimer = null;
+  function saveCacheSoon() {
+    if (saveTimer) return;
+    saveTimer = setTimeout(function () {
+      saveTimer = null;
+      try {
+        var o = {};
+        Object.keys(data).forEach(function (c) { if (!NO_CACHE[c]) o[c] = data[c]; });
+        localStorage.setItem(CACHE_KEY, JSON.stringify(o));
+      } catch (e) { console.warn("Không thể lưu bộ nhớ đệm cục bộ:", e.message); }
+    }, 400);
+  }
+
+  /* ---------- Người nghe ---------- */
+  var listeners = {};
+  function subscribe(col, fn) {
+    (listeners[col] = listeners[col] || []).push(fn);
+    return function () { listeners[col] = (listeners[col] || []).filter(function (f) { return f !== fn; }); };
+  }
+  function notify(col) {
+    if (!ready) return;
+    (listeners[col] || []).slice().forEach(function (fn) { fn(); });
+  }
+  function whenReady(fn) { if (ready) fn(); else readyCbs.push(fn); }
+  function markReady() {
+    if (ready) return;
+    ready = true;
+    var cbs = readyCbs; readyCbs = [];
+    cbs.forEach(function (f) { try { f(); } catch (e) { console.error(e); } });
+    updateBanner();
+  }
+
+  /* ---------- Hàng đợi ghi ---------- */
+  var queue = loadJson(QUEUE_KEY, []);
+  if (!Array.isArray(queue)) queue = [];
+  var inflight = false, retryTimer = null, retryDelay = 3000;
+  status.pending = queue.length;
+  function saveQueue() {
+    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); } catch (e) { console.warn("Không thể lưu hàng đợi:", e.message); }
+    setStatus({ pending: queue.length });
+  }
+  function isPending(p) {
+    for (var i = 0; i < queue.length; i++) if (Object.prototype.hasOwnProperty.call(queue[i].w, p)) return true;
+    return false;
+  }
+  function scheduleRetry() {
+    if (retryTimer) return;
+    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, retryDelay);
+    retryDelay = Math.min(retryDelay * 2, 30000);
+  }
+  function flush() {
+    if (inflight || !queue.length) return;
+    inflight = true;
+    var item = queue[0];
+    fetch(ROOT_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.w) }).then(function (r) {
+      inflight = false;
+      if (r.ok) {
+        queue.shift(); saveQueue(); retryDelay = 3000;
+        setStatus({ writeError: "", lastSync: Date.now() });
+        flush();
+      } else if (r.status === 400) {
+        console.error("RTDB từ chối một thay đổi (400) — bỏ qua:", item.w);
+        queue.shift(); saveQueue();
+        setStatus({ writeError: "Máy chủ từ chối một thay đổi (dữ liệu không hợp lệ)." });
+        flush();
+      } else {
+        setStatus({ writeError: (r.status === 401 || r.status === 403)
+          ? "Máy chủ từ chối ghi dữ liệu (kiểm tra Rules của Realtime Database). Thay đổi được giữ trên máy và sẽ gửi lại."
+          : "Lỗi máy chủ " + r.status + " — sẽ thử lại." });
+        scheduleRetry();
+      }
+    }).catch(function () {
+      inflight = false;
+      if (!navigator.onLine) setStatus({ state: "offline" });
+      scheduleRetry();
+    });
+  }
+  function enqueue(w) {
+    var last = queue[queue.length - 1];
+    if (last && !(inflight && queue.length === 1)) Object.assign(last.w, w); // gộp các ghi liên tiếp (mục đang gửi thì không gộp)
+    else queue.push({ w: w });
+    saveQueue();
+    flush();
+  }
+
+  /* ---------- Áp dụng thay đổi từ máy chủ ---------- */
+  var dirty = {};
+  function decodeDoc(v) {
+    if (!v || typeof v.d !== "string") return null;
+    try { return JSON.parse(v.d); } catch (e) { return null; }
+  }
+  function applyDoc(col, id, v) {
+    var p = pathOf(col, id);
+    if (isPending(p)) return; // đang có thay đổi cục bộ chưa gửi xong → giữ bản cục bộ
+    var obj = decodeDoc(v);
+    var colData = data[col] = data[col] || {};
+    if (obj == null) {
+      if (colData[id] !== undefined) { delete colData[id]; delete raws[p]; dirty[col] = 1; }
+      return;
+    }
+    if (colData[id] !== undefined && raws[p] === v.d) return;
+    colData[id] = obj; raws[p] = v.d; dirty[col] = 1;
+  }
+  function applyCol(col, v) {
+    var seen = {};
+    if (v && typeof v === "object") Object.keys(v).forEach(function (k) { var id = decKey(k); seen[id] = 1; applyDoc(col, id, v[k]); });
+    Object.keys(data[col] || {}).forEach(function (id) {
+      if (!seen[id] && !isPending(pathOf(col, id))) { delete data[col][id]; delete raws[pathOf(col, id)]; dirty[col] = 1; }
+    });
+  }
+  function applyAll(v) {
+    var cols = {};
+    Object.keys(data).forEach(function (c) { cols[c] = 1; });
+    if (v && typeof v === "object") Object.keys(v).forEach(function (k) { cols[decKey(k)] = 1; });
+    Object.keys(cols).forEach(function (c) { applyCol(c, v && typeof v === "object" ? v[encKey(c)] : null); });
+  }
+  function handle(path, value, isPatch) {
+    if (isPatch) {
+      if (value && typeof value === "object") {
+        Object.keys(value).forEach(function (k) { handle(path.replace(/\/$/, "") + "/" + k, value[k], false); });
+      }
+      return;
+    }
+    var segs = path.split("/").filter(Boolean).map(decKey);
+    if (segs.length === 0) applyAll(value);
+    else if (segs.length === 1) applyCol(segs[0], value);
+    else if (segs.length === 2) applyDoc(segs[0], segs[1], value);
+    else { // ai đó sửa sâu bên trong một tài liệu (vd. từ Firebase Console) → đọc lại cả tài liệu
+      fetch(BASE + "/" + ROOT + "/" + pathOf(segs[0], segs[1]) + ".json").then(function (r) { return r.json(); })
+        .then(function (v) { applyDoc(segs[0], segs[1], v); flushDirty(); }).catch(function () {});
     }
   }
-  function isFieldValueSentinel(v) {
-    return v && typeof v === "object" && typeof v.isEqual === "function" && !(v instanceof Date);
+  function flushDirty() {
+    var cols = Object.keys(dirty); dirty = {};
+    if (!cols.length) return;
+    saveCacheSoon();
+    cols.forEach(notify);
   }
-  function sanitize(data) {
+
+  /* ---------- Luồng SSE ---------- */
+  var es = null, reconnectTimer = null;
+  function scheduleReconnect(ms) {
+    if (reconnectTimer) return;
+    reconnectTimer = setTimeout(function () { reconnectTimer = null; connect(); }, ms);
+  }
+  function onMsg(ev, isPatch) {
+    var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+    handle(m.path || "/", m.data, isPatch);
+    flushDirty();
+    if (!isPatch) { setStatus({ state: "online", readError: "", lastSync: Date.now() }); markReady(); }
+  }
+  function onDenied() {
+    setStatus({ state: "error", readError: "Máy chủ từ chối đọc dữ liệu (kiểm tra Rules của Realtime Database)." });
+    if (es) { try { es.close(); } catch (e) {} es = null; }
+    scheduleReconnect(15000);
+  }
+  function connect() {
+    if (es) { try { es.close(); } catch (e) {} es = null; }
+    if (typeof EventSource === "undefined") { setStatus({ state: "error", readError: "Trình duyệt không hỗ trợ đồng bộ thời gian thực." }); return; }
+    es = new EventSource(ROOT_URL);
+    es.addEventListener("open", function () { setStatus({ state: "online", readError: "" }); });
+    es.addEventListener("put", function (ev) { onMsg(ev, false); });
+    es.addEventListener("patch", function (ev) { onMsg(ev, true); });
+    es.addEventListener("cancel", onDenied);
+    es.addEventListener("auth_revoked", onDenied);
+    es.onerror = function () {
+      if (es && es.readyState === 2) { // CLOSED: lỗi HTTP, trình duyệt không tự nối lại
+        setStatus({ state: navigator.onLine ? "error" : "offline", readError: navigator.onLine ? "Không đọc được dữ liệu từ máy chủ (kiểm tra URL / Rules của Realtime Database)." : "" });
+        es = null;
+        scheduleReconnect(10000);
+      } else {
+        setStatus({ state: "offline" });
+      }
+    };
+  }
+  window.addEventListener("online", function () { retryDelay = 3000; flush(); if (!es) connect(); });
+  window.addEventListener("offline", function () { setStatus({ state: "offline" }); });
+  document.addEventListener("visibilitychange", function () { if (!document.hidden && !es) connect(); });
+  // Đã từng đồng bộ trước đó → sau 8 giây chưa kết nối được vẫn cho dùng bản lưu trên máy (không gieo dữ liệu mẫu vì các bộ sưu tập không trống).
+  setTimeout(function () { if (!ready && hadCache) markReady(); }, 8000);
+  connect();
+  flush();
+
+  /* ---------- API tương thích Firestore ---------- */
+  function sanitize(d) {
     var out = {};
-    Object.keys(data || {}).forEach(function (k) {
-      var v = data[k];
-      out[k] = isFieldValueSentinel(v) ? new Date().toISOString() : v;
+    Object.keys(d || {}).forEach(function (k) {
+      var v = d[k];
+      if (v === undefined) return;
+      out[k] = (v && typeof v === "object" && typeof v.isEqual === "function" && !(v instanceof Date)) ? new Date().toISOString() : v;
     });
     return out;
   }
-  function genId() {
-    return "id_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
-  }
+  function genId() { return "id_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9); }
 
-  var listeners = {}; // { colName: Set<fn> }
-  function notify(col) {
-    var all = loadAll();
-    var docsObj = all[col] || {};
-    (listeners[col] || []).forEach(function (fn) { fn(docsObj); });
+  function commitOps(ops) {
+    var w = {}, touched = {};
+    ops.forEach(function (op) {
+      var col = op.col, id = op.id, p = pathOf(col, id);
+      var colData = data[col] = data[col] || {};
+      if (op.type === "delete") { delete colData[id]; delete raws[p]; w[p] = null; }
+      else {
+        var clean = sanitize(op.data);
+        var next = (op.type === "update" || op.merge) ? Object.assign({}, colData[id] || {}, clean) : clean;
+        var json = JSON.stringify(next);
+        colData[id] = JSON.parse(json); raws[p] = json;
+        w[p] = { d: json, t: Date.now() };
+      }
+      touched[col] = 1;
+    });
+    saveCacheSoon();
+    Object.keys(touched).forEach(notify);
+    enqueue(w);
   }
-  function subscribe(col, fn) {
-    if (!listeners[col]) listeners[col] = [];
-    listeners[col].push(fn);
-    return function () {
-      listeners[col] = (listeners[col] || []).filter(function (f) { return f !== fn; });
-    };
-  }
-  // Đồng bộ giữa nhiều tab/thiết bị đang mở cùng trình duyệt (LAN dùng chung máy)
-  window.addEventListener("storage", function (e) {
-    if (e.key === STORAGE_KEY) Object.keys(listeners).forEach(notify);
-  });
 
   function makeSnapshot(docsObj, opts) {
     var entries = Object.keys(docsObj).map(function (id) { return { id: id, data: docsObj[id] }; });
@@ -114,37 +344,15 @@ const {
     return {
       id: id,
       col: col,
-      set: function (data, options) {
-        var all = loadAll();
-        all[col] = all[col] || {};
-        var clean = sanitize(data);
-        all[col][id] = (options && options.merge) ? Object.assign({}, all[col][id] || {}, clean) : clean;
-        saveAll(all);
-        notify(col);
-        return Promise.resolve();
-      },
-      update: function (data) {
-        var all = loadAll();
-        all[col] = all[col] || {};
-        all[col][id] = Object.assign({}, all[col][id] || {}, sanitize(data));
-        saveAll(all);
-        notify(col);
-        return Promise.resolve();
-      },
-      "delete": function () {
-        var all = loadAll();
-        if (all[col]) delete all[col][id];
-        saveAll(all);
-        notify(col);
-        return Promise.resolve();
-      },
+      set: function (d, options) { commitOps([{ type: "set", col: col, id: id, data: d, merge: !!(options && options.merge) }]); return Promise.resolve(); },
+      update: function (d) { commitOps([{ type: "update", col: col, id: id, data: d }]); return Promise.resolve(); },
+      "delete": function () { commitOps([{ type: "delete", col: col, id: id }]); return Promise.resolve(); },
       get: function () {
-        var all = loadAll();
-        var d = all[col] && all[col][id];
-        return Promise.resolve({
-          exists: function () { return !!d; },
-          data: function () { return Object.assign({}, d || {}); },
-          id: id
+        return new Promise(function (res) {
+          whenReady(function () {
+            var d = data[col] && data[col][id];
+            res({ exists: function () { return d !== undefined; }, data: function () { return Object.assign({}, d || {}); }, id: id });
+          });
         });
       }
     };
@@ -152,21 +360,18 @@ const {
 
   function queryable(col, opts) {
     return {
-      orderBy: function (field, dir) {
-        return queryable(col, Object.assign({}, opts, { orderBy: [field, dir] }));
-      },
-      limit: function (n) {
-        return queryable(col, Object.assign({}, opts, { limit: n }));
-      },
+      orderBy: function (field, dir) { return queryable(col, Object.assign({}, opts, { orderBy: [field, dir] })); },
+      limit: function (n) { return queryable(col, Object.assign({}, opts, { limit: n })); },
+      get: function () { return new Promise(function (res) { whenReady(function () { res(makeSnapshot(data[col] || {}, opts)); }); }); },
       onSnapshot: function (onNext, onError) {
+        var active = true;
         var push = function () {
-          try {
-            var all = loadAll();
-            onNext(makeSnapshot(all[col] || {}, opts));
-          } catch (e) { if (onError) onError(e); }
+          if (!active) return;
+          try { onNext(makeSnapshot(data[col] || {}, opts)); } catch (e) { if (onError) onError(e); }
         };
-        push();
-        return subscribe(col, push);
+        whenReady(push);
+        var unsub = subscribe(col, push);
+        return function () { active = false; unsub(); };
       }
     };
   }
@@ -174,42 +379,24 @@ const {
   function collectionRef(col) {
     var base = queryable(col, {});
     base.doc = function (id) { return docRef(col, id || genId()); };
-    base.add = function (data) {
+    base.add = function (d) {
       var id = genId();
-      return docRef(col, id).set(data, {}).then(function () { return { id: id }; });
+      return docRef(col, id).set(d, {}).then(function () { return { id: id }; });
     };
     return base;
   }
 
-  window.__isOfflineDb = true;
+  window.__isOfflineDb = true; // = "tài khoản cục bộ, không Firebase Auth" (tên giữ nguyên để tương thích)
+  window.__isRtdb = true;
   window.__db = {
     collection: function (col) { return collectionRef(col); },
     batch: function () {
       var ops = [];
       return {
-        set: function (ref, data, options) { ops.push({ type: "set", ref: ref, data: data, options: options }); },
-        update: function (ref, data) { ops.push({ type: "update", ref: ref, data: data }); },
-        "delete": function (ref) { ops.push({ type: "delete", ref: ref }); },
-        commit: function () {
-          var touched = {};
-          var all = loadAll();
-          ops.forEach(function (op) {
-            var col = op.ref.col, id = op.ref.id;
-            all[col] = all[col] || {};
-            if (op.type === "delete") {
-              delete all[col][id];
-            } else if (op.type === "update") {
-              all[col][id] = Object.assign({}, all[col][id] || {}, sanitize(op.data));
-            } else {
-              var clean = sanitize(op.data);
-              all[col][id] = (op.options && op.options.merge) ? Object.assign({}, all[col][id] || {}, clean) : clean;
-            }
-            touched[col] = true;
-          });
-          saveAll(all);
-          Object.keys(touched).forEach(notify);
-          return Promise.resolve();
-        }
+        set: function (ref, d, options) { ops.push({ type: "set", col: ref.col, id: ref.id, data: d, merge: !!(options && options.merge) }); },
+        update: function (ref, d) { ops.push({ type: "update", col: ref.col, id: ref.id, data: d }); },
+        "delete": function (ref) { ops.push({ type: "delete", col: ref.col, id: ref.id }); },
+        commit: function () { if (ops.length) commitOps(ops); return Promise.resolve(); }
       };
     },
     settings: function () {}
@@ -264,6 +451,26 @@ const query = (ref, ...cs) => {
   });
   return q;
 };
+// Đăng ký theo dõi dữ liệu nhưng BỎ QUA lần báo lặp không có tài liệu nào đổi (chỉ đổi metadata) → không vẽ lại cả ứng dụng vô ích.
+// Lần đầu luôn được chuyển tiếp (kể cả bộ sưu tập rỗng). Bản offline (localStorage) không có docChanges nên luôn chuyển tiếp.
+// Giảm số lượt ĐỌC Firestore (gói miễn phí giới hạn 50.000 lượt đọc/ngày): nhật ký và lượt ghi sản lượng chỉ tải
+// AMG_READ_WINDOW_DAYS ngày gần nhất. Dữ liệu cũ KHÔNG bị xóa — vẫn nằm trên Firestore và trong tệp sao lưu; sản lượng
+// cộng dồn của từng đơn nằm ngay trên đơn (order.stages) nên không phụ thuộc cửa sổ này.
+const AMG_READ_WINDOW_DAYS = 120;
+function amgWindowStart() { return new Date(Date.now() - AMG_READ_WINDOW_DAYS * 86400000); }
+function amgIsQuotaError(e) {
+  const t = String((e && (e.code || "")) + " " + (e && e.message || e));
+  return /resource-exhausted|quota/i.test(t);
+}
+const AMG_QUOTA_MSG = "Máy chủ dữ liệu (Firebase Realtime Database) đang báo vượt hạn mức sử dụng. Thay đổi được giữ trên máy và sẽ tự gửi lại; kiểm tra hạn mức của dự án trong Firebase Console nếu tình trạng kéo dài.";
+function amgSnapDedup(q, cb, eb) {
+  let first = true;
+  return q.onSnapshot(s => {
+    if (!first) { try { if (typeof s.docChanges === "function" && s.docChanges().length === 0) return; } catch (e) {} }
+    first = false;
+    cb(s);
+  }, eb);
+}
 const orderBy = (f, d = 'asc') => q => q ? q.orderBy(f, d) : null;
 const limit = n => q => q ? q.limit(n) : null;
 const onSnapshot = (ref, cb, eb) => {

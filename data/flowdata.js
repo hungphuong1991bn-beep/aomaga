@@ -57,6 +57,7 @@ async function amgFlowTx(fn) {
         if (cache[k] && col === AMG_FLOW_COLS.runs) cache[k] = amgNormalizeRun(cache[k]); // bản ghi lệnh cũ thiếu trường vẫn đọc đúng
         return cache[k];
       },
+      getAll: pairs => Promise.all(pairs.map(pr => (pr ? ctx.get(pr[0], pr[1]) : Promise.resolve(null)))),
       set: (col, id, data, merge) => { writes.push({ op: "set", col, id, data, merge: !!merge }); },
       del: (col, id) => { writes.push({ op: "delete", col, id }); }
     };
@@ -84,7 +85,9 @@ async function amgFlowTx(fn) {
     }
     return result;
   };
-  return amgFlowSerial(() => (useTx ? dbx.runTransaction(tx => body(tx)) : body(null)));
+  const run = () => (useTx ? dbx.runTransaction(tx => body(tx)) : body(null));
+  // Giao dịch cần kết nối máy chủ. Nếu quá 25 giây chưa xong thì báo lỗi rõ ràng để người dùng thử lại, và không làm kẹt các thao tác sau.
+  return amgFlowSerial(() => Promise.race([run().catch(e => { throw amgIsQuotaError(e) ? new Error(AMG_QUOTA_MSG) : e; }), new Promise((_, rej) => setTimeout(() => rej(new Error("Mạng chậm hoặc mất kết nối — chưa lưu được (hệ thống không ghi dở). Kiểm tra mạng rồi bấm lưu lại; nếu đã có lệnh/sản lượng thì sẽ không bị ghi trùng.")), 25000))]));
 }
 // Nhật ký: thời gian (ts), người thao tác (user), nội dung (detail) + máy/lệnh/công đoạn + trạng thái trước → sau
 function amgFlowAudit(ctx, type, detail, targetId, extra) {
@@ -110,10 +113,8 @@ async function amgFlowAssign(p) {
   if (!String(p.operator || "").trim()) throw new Error("Vui lòng nhập người vận hành");
   const runId = p.runId || amgNewKey("RUN");
   return amgFlowTx(async ctx => {
-    const dup = await ctx.get(AMG_FLOW_COLS.runs, runId);
+    const [dup, order, machine] = await ctx.getAll([[AMG_FLOW_COLS.runs, runId], [FS.orders, orderId], [FS.machines, machineId]]);
     if (dup) return { duplicate: true, run: dup };
-    const order = await ctx.get(FS.orders, orderId);
-    const machine = await ctx.get(FS.machines, machineId);
     if (!order) throw new Error("Không tìm thấy đơn hàng " + orderId);
     if (!machine) throw new Error("Không tìm thấy máy " + machineId);
     const okStage = amgStageAssignable(order, stageKey);
@@ -125,8 +126,8 @@ async function amgFlowAssign(p) {
     const cand = [];
     if (machine.activeRunId) cand.push(machine.activeRunId);
     (p.knownMachineRunIds || []).forEach(id => { if (id && cand.indexOf(id) < 0) cand.push(id); });
-    for (const id of cand) {
-      const cur = await ctx.get(AMG_FLOW_COLS.runs, id);
+    const curs = await ctx.getAll(cand.map(id => [AMG_FLOW_COLS.runs, id]));
+    for (const cur of curs) {
       if (!cur || !amgRunIsLive(cur) || cur.machineId !== machine.id) continue;
       // Bấm lại / mở lại hộp thoại: cùng đơn + cùng công đoạn + cùng máy → không tạo lệnh thứ hai
       if (cur.orderId === order.id && cur.stageKey === stageKey) return { duplicate: true, run: cur };
@@ -161,8 +162,7 @@ async function amgFlowStart(runId) {
     if (run.productionStatus === "running") return { duplicate: true, run };
     if (!amgRunHasRefs(run)) throw new Error("Lệnh thiếu thông tin đơn/máy/công đoạn — không bắt đầu được");
     if (run.productionStatus !== "assigned") throw new Error("Chỉ bắt đầu được lệnh ở trạng thái Đã phân máy");
-    const machine = await ctx.get(FS.machines, run.machineId);
-    const order = await ctx.get(FS.orders, run.orderId);
+    const [machine, order] = await ctx.getAll([[FS.machines, run.machineId], [FS.orders, run.orderId]]);
     if (!order || order.status === "completed") throw new Error("Đơn hàng không còn ở trạng thái sản xuất");
     if (machine && (machine.status === "broken" || machine.status === "maintenance")) throw new Error(`Máy ${machine.id} đang ${machine.status === "broken" ? "hỏng" : "bảo trì"} — không thể bắt đầu`);
     // Một máy chỉ chạy MỘT lệnh: nếu khóa máy đang thuộc lệnh mở khác thì không cho bắt đầu
@@ -242,7 +242,8 @@ async function amgFlowRecordOutput(p) {
   if (!Number.isFinite(ng) || ng < 0) throw new Error("Số lượng NG phải là số không âm");
   const entryId = "ENT-" + String(p.clientKey).replace(/[^A-Za-z0-9_-]/g, "");
   return amgFlowTx(async ctx => {
-    const dup = await ctx.get(AMG_FLOW_COLS.entries, entryId);
+    // Đọc song song các tài liệu sẽ dùng (lượt trùng, lệnh, đơn, máy) — ctx.get dùng lại kết quả đã đọc
+    const [dup] = await ctx.getAll([[AMG_FLOW_COLS.entries, entryId], [AMG_FLOW_COLS.runs, p.runId], p.orderId ? [FS.orders, p.orderId] : null, p.machineId ? [FS.machines, p.machineId] : null]);
     if (dup) return { duplicate: true, entry: dup };
     const run = await ctx.get(AMG_FLOW_COLS.runs, p.runId);
     if (run && !amgRunHasRefs(run)) throw new Error("Lệnh thiếu thông tin đơn/máy/công đoạn — không ghi sản lượng được. Nhờ quản trị xử lý ở bảng Kiểm tra dữ liệu lệnh");
@@ -487,9 +488,9 @@ function useFlowData(enabled) {
   useEffect(() => {
     if (!enabled) return;
     const subs = [];
-    const fail = col => e => setError(`Không đọc được "${col}": ${(e && (e.code || e.message)) || e}. Kế hoạch/Thẻ máy có thể hiển thị thiếu — kiểm tra Firestore Security Rules cho collection này.`);
-    try { subs.push(window.__db.collection(AMG_FLOW_COLS.runs).onSnapshot(s => { setRuns(s.docs.map(d => amgNormalizeRun(Object.assign({ id: d.id }, d.data())))); setLoaded(true); setError(""); }, fail(AMG_FLOW_COLS.runs))); } catch (e) { fail(AMG_FLOW_COLS.runs)(e); }
-    try { subs.push(window.__db.collection(AMG_FLOW_COLS.entries).onSnapshot(s => setEntries(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), fail(AMG_FLOW_COLS.entries))); } catch (e) { fail(AMG_FLOW_COLS.entries)(e); }
+    const fail = col => e => setError(amgIsQuotaError(e) ? AMG_QUOTA_MSG : `Không đọc được "${col}": ${(e && (e.code || e.message)) || e}. Kế hoạch/Thẻ máy có thể hiển thị thiếu — kiểm tra Rules của Realtime Database.`);
+    try { subs.push(amgSnapDedup(window.__db.collection(AMG_FLOW_COLS.runs), s => { setRuns(s.docs.map(d => amgNormalizeRun(Object.assign({ id: d.id }, d.data())))); setLoaded(true); setError(""); }, fail(AMG_FLOW_COLS.runs))); } catch (e) { fail(AMG_FLOW_COLS.runs)(e); }
+    try { subs.push(amgSnapDedup((window.__isOfflineDb ? window.__db.collection(AMG_FLOW_COLS.entries) : window.__db.collection(AMG_FLOW_COLS.entries).where("enteredAt", ">=", amgWindowStart().toISOString())), s => setEntries(s.docs.map(d => Object.assign({ id: d.id }, d.data()))), fail(AMG_FLOW_COLS.entries))); } catch (e) { fail(AMG_FLOW_COLS.entries)(e); }
     return () => subs.forEach(u => { try { u && u(); } catch (e) {} });
   }, [enabled]);
   return { runs, entries, error, loaded };

@@ -1,24 +1,3 @@
-/* ===================== FIREBASE RTDB URL (đồng bộ đa thiết bị qua REST, tuỳ chọn) ===================== */
-// Lưu ý: đây là cơ chế đồng bộ REST đơn giản (Realtime Database), tách biệt với
-// lớp Firestore (db) dùng cho toàn bộ CRUD của app — chỉ dùng để AdminPage lưu lại
-// URL RTDB người dùng nhập vào Cài đặt đồng bộ.
-const FIREBASE_URL_KEY = "mes_firebase_rtdb_url";
-function getFirebaseUrl() {
-  try {
-    return localStorage.getItem(FIREBASE_URL_KEY) || "";
-  } catch (e) {
-    return "";
-  }
-}
-function setFirebaseUrl(url) {
-  try {
-    if (url) localStorage.setItem(FIREBASE_URL_KEY, url);
-    else localStorage.removeItem(FIREBASE_URL_KEY);
-  } catch (e) {
-    console.warn("Không thể lưu Firebase URL:", e.message);
-  }
-}
-
 function genMachineSeed() {
   const list = [];
   MACHINE_TYPES.forEach(type => {

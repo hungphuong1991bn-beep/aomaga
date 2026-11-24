@@ -23,17 +23,10 @@ const DX_MC_ST = { running: ["Đang chạy", "green"], assigned: ["Chờ chạy"
 function RoleOverview({ currentUser, orders, machines, staff, scrap, attendance, auditLog, runs, extra, onNavigate }) {
   const h = React.createElement;
   const isAdmin = amgIsPower(currentUser);
-  const [view, setView] = useState(amgDefaultView(currentUser));
   const [period, setPeriod] = useState("month");
   const now = useNow(30000);
   // Admin "xem như vai trò": giữ nguyên người dùng thật nhưng thu hẹp theo vai trò được chọn
-  const teams = Object.keys(TEAM_REPORT_STAGES);
-  const [viewTeam, setViewTeam] = useState(teams[0]);
-  // Admin chọn "Tổ trưởng/Nhân viên" → tính đúng như một nhân viên của tổ đã chọn (chỉ thay đổi cách xem, không đổi quyền thật)
-  const viewUser = useMemo(() => {
-    if (!isAdmin || view === "gd" || view === "qd") return currentUser;
-    return Object.assign({}, currentUser, { role: "employee", team: viewTeam });
-  }, [isAdmin, view, viewTeam, currentUser]);
+  const viewUser = currentUser;
   const ex = useMemo(() => amgComputeExecutive({ orders, machines, staff, scrap, attendance, auditLog, runs, extra }, viewUser, { period, now }),
     [orders, machines, staff, scrap, attendance, auditLog, runs, extra, viewUser, period, Math.floor(now.getTime() / 30000)]);
   const sc = ex.scope, can = sc.can, go = t => () => onNavigate && onNavigate(t);
@@ -65,6 +58,7 @@ function RoleOverview({ currentUser, orders, machines, staff, scrap, attendance,
     ["Tỷ lệ phế", q.scrapRate === null ? "Chưa có" : q.scrapRate + "%", Recycle, q.scrapRate > 5 ? C.red : C.green, `Phế liệu ${amgFmtUnits(q.scrap)}`, "qc"]);
   if (can.hr) kpis.push(["Nhân sự có mặt", ex.hr.recorded ? `${ex.hr.present}/${ex.hr.total}` : "Chưa chấm", Users, C.blue, ex.hr.recorded ? `${ex.hr.absent} vắng · ${ex.hr.notRecorded} chưa ghi nhận` : "Hôm nay chưa chấm công", "staff"]);
 
+  const hidden = [[can.orders, "Đơn hàng"], [can.plan, "Kế hoạch / Điều hành"], [can.machines, "Máy"], [can.quality, "Chất lượng"], [can.hr, "Nhân sự"]].filter(x => !x[0]).map(x => x[1]);
   const maxDay = Math.max(1, ...ex.days14.map(d => Math.max(d.kg, d.m)));
   const hasDays = ex.days14.some(d => d.kg > 0 || d.m > 0);
   const GRID = "1.1fr 1.3fr .9fr 1fr 1.1fr 1.2fr .8fr";
@@ -73,11 +67,9 @@ function RoleOverview({ currentUser, orders, machines, staff, scrap, attendance,
   return h("div", { style: { display: "flex", flexDirection: "column", gap: "clamp(12px,1.1vw,20px)" } },
     h("div", { className: "dx-head" },
       h("div", null,
-        h("div", { className: "dx-h1 mes-display" }, `Điều hành${isAdmin ? " · " + AMG_VIEWS[view] : ""}`),
+        h("div", { className: "dx-h1 mes-display" }, "Tổng quan điều hành"),
         h("div", { className: "dx-sub" }, (period === "day" ? `Ngày ${a}` : `Kỳ ${a} – ${b}`) + (sc.stages ? " · Phạm vi tổ " + sc.team : " · Toàn nhà máy") + " · cập nhật " + now.toTimeString().slice(0, 5))),
       h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
-        isAdmin && seg(AMG_VIEWS, view, setView, "Xem như vai trò"),
-        isAdmin && (view === "tt" || view === "nv") && h("select", { className: "mes-input", value: viewTeam, onChange: e => setViewTeam(e.target.value), "aria-label": "Tổ", style: { width: "auto" } }, teams.map(t => h("option", { key: t, value: t }, "Tổ " + t))),
         seg(AMG_EXEC_PERIODS, period, setPeriod, "Kỳ báo cáo"))),
     kpis.length ? h("div", { className: "dx-kpis" }, kpis.map(k => h(StatCard, { key: k[0], label: k[0], value: k[1], icon: k[2], accent: k[3], sub: k[4], onClick: go(k[5]) }))) : dxEmpty("Tài khoản chưa được cấp quyền xem phân hệ nào có số liệu tổng quan."),
 
@@ -146,5 +138,6 @@ function RoleOverview({ currentUser, orders, machines, staff, scrap, attendance,
           h("div", { className: "dx-list-row" }, h("span", null, "Ca ngày · Ca đêm"), h("b", null, ex.hr.recorded ? `${ex.hr.caNgay} · ${ex.hr.caDem}` : "—")),
           h("div", { className: "dx-list-row" }, h("span", null, "Vắng (phép/không phép)"), h("b", null, ex.hr.recorded ? ex.hr.absent : "—")),
           h("div", { className: "dx-list-row" }, h("span", null, "Thợ đang vận hành máy"), h("b", null, ex.hr.operators)),
-          ex.hr.depts.slice(0, 6).map(d => h("div", { key: d.team, style: { marginTop: 8 } }, h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: FZ(AMG_TYPE.sm) } }, h("span", null, d.team), h("span", { className: "mes-mono" }, `${d.present}/${d.total}`)), dxBar(d.total ? d.present / d.total * 100 : 0, C.blue)))))));
+          ex.hr.depts.slice(0, 6).map(d => h("div", { key: d.team, style: { marginTop: 8 } }, h("div", { style: { display: "flex", justifyContent: "space-between", fontSize: FZ(AMG_TYPE.sm) } }, h("span", null, d.team), h("span", { className: "mes-mono" }, `${d.present}/${d.total}`)), dxBar(d.total ? d.present / d.total * 100 : 0, C.blue)))))),
+    hidden.length > 0 && h("div", { className: "mes-card", style: { padding: "12px 16px", display: "flex", alignItems: "center", gap: 10, fontSize: FZ(AMG_TYPE.sm), color: C.textDim } }, h(Lock, { size: 16 }), "Một số phần của Tổng quan đang ẩn vì tài khoản chưa được cấp quyền xem: " + hidden.join(", ") + ". Liên hệ Quản trị viên nếu cần mở thêm."));
 }

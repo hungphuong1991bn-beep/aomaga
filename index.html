@@ -76,109 +76,82 @@
   <script src="https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js" onerror="window.PropTypes={}"></script>
   <script src="https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.min.js" onerror="window.Recharts={}"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window.XLSX={}"></script>
-  <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-app-compat.min.js" onerror=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-firestore-compat.min.js" onerror=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-auth-compat.min.js" onerror=""></script>
 
   <script>
     window.XLSX = window.XLSX || {};
     window.Recharts = window.Recharts || {};
-    // Nếu CDN Firebase không tải được (mất mạng, chặn tường lửa, chạy LAN nội bộ...),
-    // vẫn cần "firebase.firestore.FieldValue.serverTimestamp()" hoạt động vì được gọi
-    // ở nhiều nơi trong app.js khi ghi dữ liệu (kể cả khi dùng bộ nhớ offline).
-    window.firebase = window.firebase || {
+    // Dữ liệu chạy trên Firebase Realtime Database (xem core/runtime.js, hằng AMG_RTDB_URL).
+    // Không còn SDK Firebase / Firestore / Authentication. Đối tượng dưới đây chỉ giữ lại tên gọi cũ
+    // "firebase.firestore.FieldValue.serverTimestamp()" mà nhiều nơi trong mã vẫn dùng để lấy mốc thời gian.
+    window.firebase = {
       firestore: { FieldValue: { serverTimestamp: function () { return new Date().toISOString(); } } }
     };
-
-    /* ═══════════════════════════════════════════════════════
-       ★  ĐIỀN FIREBASE CONFIG VÀO ĐÂY  ★
-       Firebase Console → Project Settings → Web app → Config
-       Bỏ trống = chạy offline với localStorage
-    ═══════════════════════════════════════════════════════ */
-    var _FB = {
-      apiKey:            "AIzaSyCRQW1nUrkUAzAvuSLPV8dgV63T4KDmiY0",
-      authDomain:        "xuong---dong---mes.firebaseapp.com",
-      projectId:         "xuong---dong---mes",
-      storageBucket:     "xuong---dong---mes.firebasestorage.app",
-      messagingSenderId: "568384854195",
-      appId:             "1:568384854195:web:68401fe26a01c38ac438c6"
-    };
-
-    try {
-      if(typeof firebase!=='undefined' && _FB.apiKey){
-        firebase.initializeApp(_FB);
-        window.__db   = firebase.firestore();
-        window.__auth = firebase.auth();
-        window.__db.settings({experimentalAutoDetectLongPolling:true, ignoreUndefinedProperties:true});
-        console.log('✅ Firebase OK');
-      }
-    } catch(e){ console.warn('Firebase:',e.message); }
 
     setStatus('Khởi động ứng dụng...');
   </script>
 
   <!-- App đã được pre-compile → không cần Babel runtime → NHANH -->
   <!-- Mã ứng dụng đã tách module (v45). Thứ tự tải là bắt buộc: tệp sau dùng khai báo của tệp trước. -->
-  <script src="assets/images.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được assets/images.js'"></script>
-  <script src="core/runtime.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/runtime.js'"></script>
-  <script src="ui/icons.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/icons.js'"></script>
-  <script src="ui/icons_extra.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/icons_extra.js'"></script>
-  <script src="ui/tokens.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/tokens.js'"></script>
-  <script src="domain/constants.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/constants.js'"></script>
-  <script src="data/seed.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/seed.js'"></script>
-  <script src="core/security.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/security.js'"></script>
-  <script src="core/collections.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/collections.js'"></script>
-  <script src="core/policy.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/policy.js'"></script>
-  <script src="core/guard.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/guard.js'"></script>
-  <script src="core/concurrency.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/concurrency.js'"></script>
-  <script src="core/validate.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/validate.js'"></script>
-  <script src="core/backup.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/backup.js'"></script>
-  <script src="data/defaults.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/defaults.js'"></script>
-  <script src="core/format.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/format.js'"></script>
-  <script src="domain/stages.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/stages.js'"></script>
-  <script src="domain/alerts.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/alerts.js'"></script>
-  <script src="domain/kpi.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/kpi.js'"></script>
-  <script src="domain/flow.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/flow.js'"></script>
-  <script src="domain/executive.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/executive.js'"></script>
-  <script src="data/useAppData.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/useAppData.js'"></script>
-  <script src="data/useExtraData.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/useExtraData.js'"></script>
-  <script src="data/flowdata.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/flowdata.js'"></script>
-  <script src="modules/auth/login.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/auth/login.js'"></script>
-  <script src="ui/layout.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/layout.js'"></script>
-  <script src="modules/dashboard/roleoverview.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/dashboard/roleoverview.js'"></script>
-  <script src="modules/dashboard/dashboard.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/dashboard/dashboard.js'"></script>
-  <script src="modules/orders/orders.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/orders.js'"></script>
-  <script src="modules/orders/orderdetail.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/orderdetail.js'"></script>
-  <script src="modules/orders/ordersboard.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/ordersboard.js'"></script>
-  <script src="modules/orders/completed.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/completed.js'"></script>
-  <script src="modules/machines/machines.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/machines/machines.js'"></script>
-  <script src="modules/plan/plan_modals.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/plan/plan_modals.js'"></script>
-  <script src="modules/plan/plan.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/plan/plan.js'"></script>
-  <script src="modules/downtime/downtime.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/downtime/downtime.js'"></script>
-  <script src="modules/quality/quality.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/quality/quality.js'"></script>
-  <script src="modules/hr/hr.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/hr/hr.js'"></script>
-  <script src="modules/reports/reports.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/reports/reports.js'"></script>
-  <script src="modules/reports/reports_plus.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/reports/reports_plus.js'"></script>
-  <script src="modules/keotrung/keotrung.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/keotrung/keotrung.js'"></script>
-  <script src="modules/admin/userform.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/userform.js'"></script>
-  <script src="modules/documents/documents.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/documents/documents.js'"></script>
-  <script src="modules/admin/backupcard.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/backupcard.js'"></script>
-  <script src="modules/admin/accounts.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/accounts.js'"></script>
-  <script src="modules/admin/admin.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/admin.js'"></script>
-  <script src="modules/admin/permissions.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/permissions.js'"></script>
-  <script src="modules/app/appinner.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/app/appinner.js'"></script>
-  <script src="ui/grid.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/grid.js'"></script>
-  <script src="ui/globalstyle.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/globalstyle.js'"></script>
-  <script src="ui/components.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/components.js'"></script>
-  <script src="ui/recordkit.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/recordkit.js'"></script>
-  <script src="modules/records/section.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/section.js'"></script>
-  <script src="modules/records/pages_kho_qc.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_kho_qc.js'"></script>
-  <script src="modules/records/pages_ops_maint.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_ops_maint.js'"></script>
-  <script src="modules/records/pages_hr_docs.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_hr_docs.js'"></script>
-  <script src="modules/records/trace.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/trace.js'"></script>
-  <script src="ui/dialog.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/dialog.js'"></script>
-  <script src="core/errorboundary.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/errorboundary.js'"></script>
-  <script src="core/boot.js?v=49" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/boot.js'"></script>
+  <script src="assets/images.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được assets/images.js'"></script>
+  <script src="core/runtime.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/runtime.js'"></script>
+  <script src="ui/icons.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/icons.js'"></script>
+  <script src="ui/icons_extra.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/icons_extra.js'"></script>
+  <script src="ui/tokens.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/tokens.js'"></script>
+  <script src="domain/constants.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/constants.js'"></script>
+  <script src="data/seed.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/seed.js'"></script>
+  <script src="core/security.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/security.js'"></script>
+  <script src="core/collections.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/collections.js'"></script>
+  <script src="core/policy.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/policy.js'"></script>
+  <script src="core/guard.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/guard.js'"></script>
+  <script src="core/concurrency.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/concurrency.js'"></script>
+  <script src="core/validate.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/validate.js'"></script>
+  <script src="core/backup.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/backup.js'"></script>
+  <script src="data/defaults.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/defaults.js'"></script>
+  <script src="core/format.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/format.js'"></script>
+  <script src="domain/stages.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/stages.js'"></script>
+  <script src="domain/alerts.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/alerts.js'"></script>
+  <script src="domain/kpi.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/kpi.js'"></script>
+  <script src="domain/flow.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/flow.js'"></script>
+  <script src="domain/executive.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được domain/executive.js'"></script>
+  <script src="data/useAppData.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/useAppData.js'"></script>
+  <script src="data/useExtraData.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/useExtraData.js'"></script>
+  <script src="data/flowdata.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được data/flowdata.js'"></script>
+  <script src="modules/auth/login.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/auth/login.js'"></script>
+  <script src="ui/layout.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/layout.js'"></script>
+  <script src="modules/dashboard/roleoverview.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/dashboard/roleoverview.js'"></script>
+  <script src="modules/dashboard/dashboard.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/dashboard/dashboard.js'"></script>
+  <script src="modules/orders/orders.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/orders.js'"></script>
+  <script src="modules/orders/orderdetail.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/orderdetail.js'"></script>
+  <script src="modules/orders/ordersboard.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/ordersboard.js'"></script>
+  <script src="modules/orders/completed.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/orders/completed.js'"></script>
+  <script src="modules/machines/machines.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/machines/machines.js'"></script>
+  <script src="modules/plan/plan_modals.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/plan/plan_modals.js'"></script>
+  <script src="modules/plan/plan.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/plan/plan.js'"></script>
+  <script src="modules/downtime/downtime.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/downtime/downtime.js'"></script>
+  <script src="modules/quality/quality.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/quality/quality.js'"></script>
+  <script src="modules/hr/hr.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/hr/hr.js'"></script>
+  <script src="modules/reports/reports.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/reports/reports.js'"></script>
+  <script src="modules/reports/reports_plus.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/reports/reports_plus.js'"></script>
+  <script src="modules/keotrung/keotrung.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/keotrung/keotrung.js'"></script>
+  <script src="modules/admin/userform.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/userform.js'"></script>
+  <script src="modules/documents/documents.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/documents/documents.js'"></script>
+  <script src="modules/admin/backupcard.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/backupcard.js'"></script>
+  <script src="modules/admin/accounts.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/accounts.js'"></script>
+  <script src="modules/admin/admin.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/admin.js'"></script>
+  <script src="modules/admin/permissions.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/admin/permissions.js'"></script>
+  <script src="modules/app/appinner.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/app/appinner.js'"></script>
+  <script src="ui/grid.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/grid.js'"></script>
+  <script src="ui/globalstyle.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/globalstyle.js'"></script>
+  <script src="ui/components.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/components.js'"></script>
+  <script src="ui/recordkit.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/recordkit.js'"></script>
+  <script src="modules/records/section.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/section.js'"></script>
+  <script src="modules/records/pages_kho_qc.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_kho_qc.js'"></script>
+  <script src="modules/records/pages_ops_maint.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_ops_maint.js'"></script>
+  <script src="modules/records/pages_hr_docs.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/pages_hr_docs.js'"></script>
+  <script src="modules/records/trace.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được modules/records/trace.js'"></script>
+  <script src="ui/dialog.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được ui/dialog.js'"></script>
+  <script src="core/errorboundary.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/errorboundary.js'"></script>
+  <script src="core/boot.js?v=52" onerror="document.getElementById('sp-status').textContent='❌ Không tải được core/boot.js'"></script>
 
   <!-- Service Worker -->
   <script>

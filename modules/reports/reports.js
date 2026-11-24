@@ -505,7 +505,7 @@ function ReportsPage({
   onDeleteProductionEntry
 }) {
   // Admin xem tất cả công đoạn; tài khoản theo tổ chỉ xem đúng công đoạn của tổ mình
-  const visibleStageKeys = isAdmin ? null : TEAM_REPORT_STAGES[currentUser?.team] || null;
+  const visibleStageKeys = null; // v49: mọi tài khoản đều XEM đủ các công đoạn (nhập/sửa vẫn theo phân quyền)
   const visibleStages = visibleStageKeys ? STAGES.filter(s => visibleStageKeys.includes(s.key)) : STAGES;
   const isStageVisible = key => !visibleStageKeys || visibleStageKeys.includes(key);
   const [customerFilter, setCustomerFilter] = useState("all");

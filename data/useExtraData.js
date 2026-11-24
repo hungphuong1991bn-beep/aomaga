@@ -45,7 +45,7 @@ function useExtraData(enabled) {
     if (!enabled) return;
     const unsubs = Object.keys(AMG_COLLECTIONS).map(col => {
       try {
-        return window.__db.collection(col).onSnapshot(s => {
+        return amgSnapDedup(window.__db.collection(col), s => {
           const rows = s.docs.map(d => Object.assign({ id: d.id }, d.data()));
           setState(prev => Object.assign({}, prev, { [col]: rows }));
         }, () => {});

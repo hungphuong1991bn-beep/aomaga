@@ -2,16 +2,13 @@
    - Mã ứng dụng (cùng nguồn): MẠNG TRƯỚC, cache dự phòng khi mất mạng → người dùng luôn nhận bản mới nhất khi có mạng.
    - Thư viện CDN (đã ghim đúng phiên bản): cache trước.
    - Bản mới KHÔNG tự thay thế giữa chừng khi đang nhập liệu: chờ người dùng bấm "Tải lại" trên thanh thông báo. */
-const V = 'mes-v49-modular';
+const V = 'mes-v52-modular';
 const CDN = [
   'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
   'https://cdn.jsdelivr.net/npm/prop-types@15.8.1/prop-types.min.js',
   'https://cdn.jsdelivr.net/npm/recharts@2.8.0/umd/Recharts.min.js',
   'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-  'https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-app-compat.min.js',
-  'https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-firestore-compat.min.js',
-  'https://cdn.jsdelivr.net/npm/firebase@10.7.0/firebase-auth-compat.min.js',
 ];
 const APP = [
   './',
@@ -82,7 +79,7 @@ const APP = [
 self.addEventListener('install', e => e.waitUntil(
   caches.open(V).then(c => Promise.allSettled([
     ...CDN.map(u => c.add(u).catch(() => {})),
-    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=49' : '')).catch(() => {})),
+    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=52' : '')).catch(() => {})),
   ]))
 ));
 self.addEventListener('message', e => {
@@ -97,6 +94,8 @@ self.addEventListener('fetch', e => {
   if (req.method !== 'GET') return;
   const u = new URL(req.url);
   if (u.hostname.includes('googleapis.com') || u.pathname.includes('/listen/')) return;
+  // Realtime Database (REST + luồng SSE): KHÔNG được cache/can thiệp, nếu không sẽ đọc phải dữ liệu cũ hoặc treo luồng
+  if (u.hostname.endsWith('firebasedatabase.app') || u.hostname.endsWith('firebaseio.com')) return;
   const sameOrigin = u.origin === self.location.origin;
   if (sameOrigin) {
     // mạng trước, cache dự phòng

@@ -30,141 +30,52 @@ function AdminPage({
     })) { try { await onDeleteUser(u.username); } catch (e) { showAlert(e.message || String(e)); } }
   }
   return /*#__PURE__*/React.createElement("div", null, (() => {
-    const [fbUrl, setFbUrl] = React.useState(() => getFirebaseUrl());
+    const [st, setSt] = React.useState(() => Object.assign({}, window.__rtdbStatus || {}));
     const [fbStatus, setFbStatus] = React.useState("");
     const [fbTesting, setFbTesting] = React.useState(false);
-    async function testAndSave() {
-      if (!fbUrl.trim()) {
-        setFirebaseUrl("");
-        setFbStatus("✓ Đã tắt đồng bộ Firebase.");
-        return;
-      }
+    React.useEffect(() => (window.__rtdbSubscribe ? window.__rtdbSubscribe(s => setSt(Object.assign({}, s))) : undefined), []);
+    async function testConn() {
       setFbTesting(true);
       setFbStatus("Đang kiểm tra kết nối...");
       try {
-        const r = await fetch(`${fbUrl.replace(/\/$/, "")}/mes_ping.json`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            ts: Date.now()
-          })
-        });
-        if (r.ok) {
-          setFirebaseUrl(fbUrl.trim());
-          setFbStatus("✅ Kết nối thành công! Đồng bộ đã được bật — tất cả máy dùng chung link này sẽ chia sẻ dữ liệu.");
-        } else {
-          setFbStatus(`❌ Lỗi ${r.status} — kiểm tra lại URL hoặc quy tắc bảo mật Firebase.`);
-        }
+        const r = await fetch(`${AMG_RTDB_URL.replace(/\/$/, "")}/amg.json?shallow=true`);
+        if (r.ok) setFbStatus("✅ Kết nối thành công — máy chủ dữ liệu đọc được.");
+        else setFbStatus(`❌ Lỗi ${r.status} — kiểm tra Rules của Realtime Database.`);
       } catch (e) {
-        setFbStatus("❌ Không kết nối được. Kiểm tra URL Firebase và kết nối mạng.");
+        setFbStatus("❌ Không kết nối được. Kiểm tra kết nối mạng.");
       }
       setFbTesting(false);
     }
+    const online = st.state === "online";
+    const stateLabel = online ? "● Đang đồng bộ" : st.state === "offline" ? "● Mất kết nối" : st.state === "error" ? "● Lỗi" : "● Đang kết nối";
+    const stateColor = online ? COLORS.green : st.state === "connecting" ? COLORS.orange : COLORS.red;
     return /*#__PURE__*/React.createElement("div", {
       className: "mes-card",
-      style: {
-        padding: 20,
-        marginBottom: 20,
-        border: `1px solid ${COLORS.orange}55`,
-        borderTop: `4px solid ${COLORS.orange}`,
-        boxShadow: `0 2px 8px ${COLORS.orange}22`
-      }
+      style: { padding: 20, marginBottom: 20, border: `1px solid ${COLORS.orange}55`, borderTop: `4px solid ${COLORS.orange}`, boxShadow: `0 2px 8px ${COLORS.orange}22` }
     }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        marginBottom: 16
-      }
+      style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }
     }, /*#__PURE__*/React.createElement("div", {
-      style: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        background: `linear-gradient(135deg, ${COLORS.orange}, ${COLORS.copperBright})`,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }
-    }, /*#__PURE__*/React.createElement(RefreshCw, {
-      size: 18,
-      color: "#fff"
-    })), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+      style: { width: 36, height: 36, borderRadius: 10, background: `linear-gradient(135deg, ${COLORS.orange}, ${COLORS.copperBright})`, display: "flex", alignItems: "center", justifyContent: "center" }
+    }, /*#__PURE__*/React.createElement(RefreshCw, { size: 18, color: "#fff" })), /*#__PURE__*/React.createElement("div", { style: { flex: 1 } }, /*#__PURE__*/React.createElement("div", {
       className: "mes-mono",
-      style: {
-        fontSize: FZ(12),
-        color: "#C2410C",
-        letterSpacing: ".07em",
-        textTransform: "uppercase"
-      }
+      style: { fontSize: FZ(12), color: "#C2410C", letterSpacing: ".07em", textTransform: "uppercase" }
     }, "Đồng bộ đa thiết bị"), /*#__PURE__*/React.createElement("div", {
       className: "mes-display",
+      style: { fontSize: FZ(16), fontWeight: 700 }
+    }, "Firebase Realtime Database")), /*#__PURE__*/React.createElement(Badge, { color: stateColor }, stateLabel)), /*#__PURE__*/React.createElement("div", {
+      style: { background: COLORS.bgInset, borderRadius: 8, padding: "12px 14px", marginBottom: 14, fontSize: FZ(13), lineHeight: 1.7, wordBreak: "break-all" }
+    }, /*#__PURE__*/React.createElement("b", null, "Máy chủ dữ liệu: "), /*#__PURE__*/React.createElement("span", { style: { color: COLORS.copperBright } }, AMG_RTDB_URL), st.pending ? /*#__PURE__*/React.createElement("div", null, `${st.pending} thay đổi đang chờ gửi lên máy chủ.`) : null, st.readError || st.writeError ? /*#__PURE__*/React.createElement("div", { style: { color: COLORS.red } }, st.readError || st.writeError) : null), fbStatus && /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: FZ(16),
-        fontWeight: 700
-      }
-    }, "Kết nối Firebase — chia sẻ dữ liệu thật sự")), getFirebaseUrl() && /*#__PURE__*/React.createElement(Badge, {
-      color: COLORS.green
-    }, "● Đang đồng bộ")), /*#__PURE__*/React.createElement("div", {
-      style: {
-        background: COLORS.bgInset,
-        borderRadius: 8,
-        padding: "12px 14px",
-        marginBottom: 14,
-        fontSize: FZ(13),
-        lineHeight: 1.7
-      }
-    }, /*#__PURE__*/React.createElement("b", null, "Hướng dẫn thiết lập Firebase (miễn phí, 5 phút):"), /*#__PURE__*/React.createElement("br", null), "1. Vào ", /*#__PURE__*/React.createElement("b", null, "console.firebase.google.com"), " → đăng nhập Google → ", /*#__PURE__*/React.createElement("b", null, "Tạo dự án"), /*#__PURE__*/React.createElement("br", null), "2. Chọn ", /*#__PURE__*/React.createElement("b", null, "Realtime Database"), " → ", /*#__PURE__*/React.createElement("b", null, "Tạo cơ sở dữ liệu"), " → chọn ", /*#__PURE__*/React.createElement("b", null, "Test mode"), /*#__PURE__*/React.createElement("br", null), "3. Copy URL dạng ", /*#__PURE__*/React.createElement("code", {
-      style: {
-        color: COLORS.copperBright
-      }
-    }, "https://ten-du-an-default-rtdb.firebaseio.com"), /*#__PURE__*/React.createElement("br", null), "4. Dán vào ô bên dưới → bấm ", /*#__PURE__*/React.createElement("b", null, "Lưu & kiểm tra")), /*#__PURE__*/React.createElement(Field, {
-      label: "Firebase Realtime Database URL"
-    }, /*#__PURE__*/React.createElement("input", {
-      className: "mes-input",
-      value: fbUrl,
-      onChange: e => setFbUrl(e.target.value),
-      placeholder: "https://your-project-default-rtdb.firebaseio.com"
-    })), fbStatus && /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: FZ(13),
-        padding: "8px 12px",
-        borderRadius: 8,
-        marginBottom: 10,
+        fontSize: FZ(13), padding: "8px 12px", borderRadius: 8, marginBottom: 10,
         background: fbStatus.includes("✅") ? `${COLORS.green}18` : fbStatus.includes("❌") ? `${COLORS.red}18` : COLORS.bgInset,
         color: fbStatus.includes("✅") ? COLORS.green : fbStatus.includes("❌") ? COLORS.red : COLORS.textDim
       }
-    }, fbStatus), /*#__PURE__*/React.createElement("div", {
-      style: {
-        display: "flex",
-        gap: 10
-      }
-    }, /*#__PURE__*/React.createElement(Button, {
+    }, fbStatus), /*#__PURE__*/React.createElement(Button, {
       variant: "primary",
-      onClick: testAndSave,
+      onClick: testConn,
       disabled: fbTesting,
-      style: {
-        flex: 1,
-        justifyContent: "center"
-      }
-    }, fbTesting ? /*#__PURE__*/React.createElement(Loader2, {
-      size: 14
-    }) : /*#__PURE__*/React.createElement(CheckCircle2, {
-      size: 14
-    }), fbTesting ? "Đang kiểm tra..." : "Lưu & kiểm tra kết nối"), getFirebaseUrl() && /*#__PURE__*/React.createElement(Button, {
-      onClick: () => {
-        setFbUrl("");
-        setFirebaseUrl("");
-        setFbStatus("Đã tắt đồng bộ.");
-      },
-      style: {
-        color: COLORS.red
-      }
-    }, /*#__PURE__*/React.createElement(X, {
-      size: 14
-    }), " Tắt đồng bộ")));
+      style: { width: "100%", justifyContent: "center" }
+    }, fbTesting ? /*#__PURE__*/React.createElement(Loader2, { size: 14 }) : /*#__PURE__*/React.createElement(CheckCircle2, { size: 14 }), fbTesting ? "Đang kiểm tra..." : "Kiểm tra kết nối"));
   })(), /*#__PURE__*/React.createElement("div", {
     className: "mes-card",
     style: {

@@ -18,7 +18,7 @@ function useAppData() {
     // Kiểm tra một lần xem collection có trống không (an toàn nếu onSnapshot gọi callback đồng bộ)
     const isEmpty = col => new Promise(resolve => {
       let unsub, done = false;
-      unsub = db.collection(col).onSnapshot(s => {
+      unsub = amgSnapDedup(db.collection(col), s => {
         if (done) return;
         done = true;
         resolve(s.docs.length === 0);
@@ -48,7 +48,7 @@ function useAppData() {
     let unsubs = [];
     seedIfEmptyOffline().finally(() => {
       if (cancelled) return;
-      unsubs = [db.collection(FS.orders).onSnapshot(s => {
+      unsubs = [amgSnapDedup(db.collection(FS.orders), s => {
       // Sắp xếp phía client (không dùng orderBy("createdAt") của Firestore) vì
       // Firestore sẽ ÂM THẦM LOẠI BỎ khỏi kết quả bất kỳ document nào thiếu đúng
       // trường đang orderBy — mà _batch()/persistOrders chỉ ghi "updatedAt", không
@@ -64,7 +64,7 @@ function useAppData() {
       });
       setOrders(list);
       done();
-    }, () => done()), db.collection(FS.staff).onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.staff), s => {
       // Tương tự: không dùng orderBy("team") vì Firestore sẽ loại bỏ nhân sự
       // thiếu trường "team" khỏi kết quả — sắp xếp phía client thay vào đó.
       const list = s.docs.map(d => ({
@@ -74,19 +74,19 @@ function useAppData() {
       list.sort((a, b) => (a.team || "").localeCompare(b.team || ""));
       setStaff(list);
       done();
-    }, () => done()), db.collection(FS.machines).onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.machines), s => {
       setMachines(s.docs.map(d => ({
         id: d.id,
         ...d.data()
       })));
       done();
-    }, () => done()), db.collection(FS.scrap).orderBy("date", "desc").onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.scrap).orderBy("date", "desc"), s => {
       setScrap(s.docs.map(d => ({
         id: d.id,
         ...d.data()
       })));
       done();
-    }, () => done()), db.collection(FS.audit).orderBy("ts", "desc").onSnapshot(s => {
+    }, () => done()), amgSnapDedup((window.__isOfflineDb ? db.collection(FS.audit) : db.collection(FS.audit).where("ts", ">=", firebase.firestore.Timestamp.fromDate(amgWindowStart()))).orderBy("ts", "desc"), s => {
       // Giữ lại đúng 365 ngày gần nhất (không giới hạn số lượng bản ghi trong khoảng đó)
       const cutoff = Date.now() - 365 * 24 * 60 * 60 * 1000;
       const list = s.docs.map(d => ({
@@ -98,21 +98,21 @@ function useAppData() {
       });
       setAuditLog(list);
       done();
-    }, () => done()), db.collection(FS.users).onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.users), s => {
       setUsers(s.docs.map(d => ({
         id: d.id,
         uid: d.id,
         ...d.data()
       })));
       done();
-    }, () => done()), db.collection(FS.attendance).onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.attendance), s => {
       const a = {};
       s.docs.forEach(d => {
         a[d.id] = d.data();
       });
       setAttendance(a);
       done();
-    }, () => done()), db.collection(FS.certificates).onSnapshot(s => {
+    }, () => done()), amgSnapDedup(db.collection(FS.certificates), s => {
       const all = s.docs.map(d => ({
         id: d.id,
         ...d.data()
