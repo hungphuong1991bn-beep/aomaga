@@ -10,7 +10,7 @@ ok('A1. Mọi script nội bộ trong index.html tồn tại trên đĩa', scrip
 ok('A2. Mọi script nội bộ nằm trong danh sách APP của sw.js (chạy offline/PWA đủ tệp)', scripts.every(s=>appList.includes(s)), scripts.filter(s=>!appList.includes(s)).join(','));
 ok('A3. Mọi tệp trong APP của sw.js tồn tại', appList.every(f=>fs.existsSync(path.join(APP,f))), appList.filter(f=>!fs.existsSync(path.join(APP,f))).join(','));
 ok('A4. Tên cache Service Worker là bản v52', /const V = 'mes-v52-/.test(sw)&&!/mes-v52-modular/.test(sw));
-ok('A5. Mọi script dùng cùng tham số phiên bản ?v=52.1 (không lẫn bản cũ)', [...html.matchAll(/<script[^>]*\ssrc="(?!https?:)([^"]+)"/g)].every(m=>/\?v=52\.1$/.test(m[1])));
+ok('A5. Mọi script dùng cùng tham số phiên bản ?v=52.2 (không lẫn bản cũ)', [...html.matchAll(/<script[^>]*\ssrc="(?!https?:)([^"]+)"/g)].every(m=>/\?v=52\.2$/.test(m[1])));
 let m; try{ m=JSON.parse(fs.readFileSync(path.join(APP,'manifest.json'),'utf8')); }catch(e){}
 ok('A6. manifest.json hợp lệ (PWA)', !!m&&!!m.name&&Array.isArray(m.icons)&&m.icons.length>0);
 const bad=[]; (function walk(d){ fs.readdirSync(d).forEach(f=>{ const p=path.join(d,f); if(f==='docs'||f==='node_modules') return; if(fs.statSync(p).isDirectory()) return walk(p); if(p.endsWith('.js')){ try{ new vm.Script(fs.readFileSync(p,'utf8'),{filename:p}); }catch(e){ bad.push(path.relative(APP,p)+': '+e.message); } } }); })(APP);

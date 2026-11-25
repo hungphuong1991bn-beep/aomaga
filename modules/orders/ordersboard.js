@@ -182,8 +182,55 @@ function OrderRow({ r, no, wide, runs, isAdmin, manage, picked, onView, onEdit, 
     acts);
 }
 
+/* ---------- Xóa đơn kể cả đang sản xuất (v53 — chỉ Admin) ---------- */
+function amgOrderImpact(o, runs, entries, extra) {
+  const rr = amgRunsOfOrder(runs || [], o.id), open = rr.filter(amgIsOpenRun), ex = extra || {};
+  const linked = ["stockMoves", "inspections", "ncr", "plans"].reduce((n, c) => n + (ex[c] || []).filter(x => x && x.orderId === o.id).length, 0);
+  const prog = orderProgress(normalizeOrderStages(o));
+  return { runs: rr.length, open: open.length, machines: [...new Set(open.map(r => r.machineId))], entries: (entries || []).filter(e => e.orderId === o.id).length, done: prog.completedQty || 0, linked };
+}
+function OrderForceDeleteModal({ orders: orders0, runs, entries, extra, onConfirm, onClose }) {
+  const [orders, setOrders] = useState(orders0); // sau khi xóa một phần, chỉ còn các đơn bị lỗi
+  const single = orders.length === 1;
+  const word = single ? orders[0].id : "XOA";
+  const [reason, setReason] = useState(""), [typed, setTyped] = useState(""), [busy, setBusy] = useState(false), [errs, setErrs] = useState([]);
+  const info = orders.map(o => ({ o, im: amgOrderImpact(o, runs, entries, extra) }));
+  const tot = info.reduce((a, x) => ({ runs: a.runs + x.im.runs, open: a.open + x.im.open, entries: a.entries + x.im.entries, linked: a.linked + x.im.linked }), { runs: 0, open: 0, entries: 0, linked: 0 });
+  const okForm = reason.trim().length >= 3 && typed.trim().toLowerCase() === word.toLowerCase() && !busy;
+  async function go() {
+    if (!okForm) return;
+    setBusy(true); setErrs([]);
+    try {
+      const res = await onConfirm(orders.map(o => o.id), reason.trim());
+      const failed = (res && res.failed) || [];
+      if (failed.length) {
+        const okN = (res.ok || []).length;
+        setErrs((okN ? [`Đã xóa ${okN} đơn; còn ${failed.length} đơn chưa xóa được:`] : []).concat(failed.map(f => `${f.id}: ${f.message}`)));
+        if (okN) { const bad = new Set(failed.map(f => f.id)); setOrders(l => l.filter(o => bad.has(o.id))); setTyped(""); }
+        setBusy(false); return;
+      }
+      onClose(true, Object.assign({}, res, { ok: (res.ok || []).concat(orders0.length > orders.length ? new Array(orders0.length - orders.length).fill(null) : []) }));
+    } catch (e) { setErrs([e.message || String(e)]); setBusy(false); }
+  }
+  return rkh(Modal, { title: single ? `Xóa đơn ${orders[0].id} — kể cả đang sản xuất` : `Xóa ${orders.length} đơn — kể cả đang sản xuất`, onClose: () => onClose(false), width: 620 },
+    rkh(AmgNotice, { tone: "err" }, "⚠ Chỉ Admin. Xóa vĩnh viễn, KHÔNG hoàn tác được. Đơn, toàn bộ lệnh máy và sản lượng đã ghi của đơn sẽ bị xóa; máy đang bị khóa bởi lệnh của đơn sẽ được giải phóng."),
+    rkh("div", { style: { margin: "10px 0", maxHeight: 230, overflowY: "auto" } }, info.slice(0, 8).map(({ o, im }) => rkh("div", { key: o.id, style: { padding: "8px 10px", marginBottom: 6, borderRadius: 10, border: `1px solid ${im.runs || im.done ? COLORS.red : COLORS.border}`, background: COLORS.bgPanel2 } },
+      rkh("div", { style: { fontWeight: 800 } }, `${o.customer || "—"} · ${o.spec || "—"}`, rkh("span", { className: "mes-mono", style: { fontWeight: 500, color: COLORS.textFaint, marginLeft: 8 } }, o.id)),
+      rkh("div", { style: { fontSize: FZ(12.5), color: COLORS.textDim, marginTop: 2 } }, `${im.runs} lệnh máy (${im.open} đang mở${im.machines.length ? " trên máy " + im.machines.join(", ") : ""}) · đã sản xuất ${fmtNum(im.done)} ${amgOrderUnit(o)} · ${im.entries} lượt sản lượng`)))),
+    info.length > 8 && rkh("div", { style: { fontSize: FZ(12.5), color: COLORS.textDim, marginBottom: 8 } }, `… và ${info.length - 8} đơn khác`),
+    rkh("div", { style: { fontSize: FZ(13), marginBottom: 10 } }, `Tổng cộng sẽ xóa: ${orders.length} đơn · ${tot.runs} lệnh máy (${tot.open} đang mở) · ${tot.entries} lượt sản lượng.`),
+    tot.linked > 0 && rkh(AmgNotice, { tone: "warn" }, `Giữ nguyên ${tot.linked} phiếu kho / kiểm tra / NG / kế hoạch ngày đang tham chiếu tới đơn này (thuộc phân hệ khác). Các phiếu đó sẽ báo "đơn không tồn tại" ở bảng Kiểm tra dữ liệu.`),
+    rkh("div", { style: { fontSize: FZ(12), fontWeight: 700, color: COLORS.textDim, margin: "10px 0 5px" } }, "Lý do xóa * (ghi vào nhật ký)"),
+    rkh("input", { className: "mes-input", "data-testid": "force-del-reason", style: { width: "100%" }, value: reason, onChange: e => setReason(e.target.value), placeholder: "ví dụ: nhập nhầm đơn, khách hủy đơn..." }),
+    rkh("div", { style: { fontSize: FZ(12), fontWeight: 700, color: COLORS.textDim, margin: "10px 0 5px" } }, single ? `Gõ mã đơn "${word}" để xác nhận` : `Gõ "${word}" để xác nhận`),
+    rkh("input", { className: "mes-input", "data-testid": "force-del-confirm", style: { width: "100%" }, value: typed, onChange: e => setTyped(e.target.value), autoComplete: "off" }),
+    errs.length > 0 && rkh(AmgNotice, { tone: "err" }, errs.join("\n")),
+    rkh("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 } }, rkh(Button, { onClick: () => onClose(false), disabled: busy }, "Hủy"),
+      rkh(Button, { variant: "danger", "data-testid": "force-del-go", disabled: !okForm, onClick: go }, busy ? "Đang xóa..." : single ? "Xóa vĩnh viễn đơn này" : `Xóa vĩnh viễn ${orders.length} đơn`)));
+}
+
 /* ---------- Trang Đơn hàng ---------- */
-function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, currentUser, onAdd, onUpdate, onDelete, onBulkDelete, onRestoreSeed, extra, completedCount, onNavigate, onNavigateFocus }) {
+function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, currentUser, onAdd, onUpdate, onDelete, onBulkDelete, onForceDelete, onRestoreSeed, extra, completedCount, onNavigate, onNavigateFocus }) {
   const { askConfirm, showAlert } = useDialog();
   const focus0 = useState(() => amgTakeFocus("orders"))[0]; // từ tìm kiếm toàn hệ thống
   const [q, setQ] = useState(() => (focus0 && focus0.q ? focus0.q : ""));
@@ -194,6 +241,9 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
   const [rFrom, setRFrom] = useState(""), [rTo, setRTo] = useState(""), [dFrom, setDFrom] = useState(""), [dTo, setDTo] = useState("");
   const [modal, setModal] = useState(() => { const o = focus0 && focus0.orderId ? orders.find(x => x.id === focus0.orderId) : null; return o ? { kind: "view", order: o } : null; });
   const [selected, setSelected] = useState(() => new Set());
+  const [force, setForce] = useState(null); // { orders, resolve } — hộp xóa tận gốc (Admin)
+  const isRoot = amgIsRoot(currentUser);
+  const askForce = list => new Promise(resolve => setForce({ orders: list, resolve }));
   const [manage, setManage] = useState(false); // chế độ quản lý: chọn nhiều để xóa — KHÔNG còn checkbox cạnh STT
   const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20);
   const [boxRef, boxW] = useBoxWidth();
@@ -262,17 +312,26 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
     const bad = ids.filter(id => amgRunsOfOrder(rs, id).length > 0 || STAGES.some(s => amgStageDone(orders.find(o => o.id === id) || {}, s.key) > 0));
     return bad;
   }
+  const NEED_ROOT = "Chỉ Admin mới được xóa đơn đã có lệnh máy hoặc sản lượng (đang sản xuất).";
   async function del(o) {
     if (o.status === "completed") { await showAlert(`Đơn ${o.id} đã hoàn thành nên không xóa theo cách thông thường. Đơn hoàn thành là dữ liệu lưu trữ; muốn chỉnh sửa hãy mở lại đơn (có lý do, có nhật ký).`, { title: "Không xóa được" }); return false; }
     const bad = blockedDelete([o.id]);
-    if (bad.length) { await showAlert(`Đơn ${o.id} đã có lệnh máy hoặc sản lượng nên không thể xóa để bảo toàn dữ liệu sản xuất.`, { title: "Không xóa được" }); return false; }
+    if (bad.length) {
+      if (!isRoot || !onForceDelete) { await showAlert(`Đơn ${o.id} đã có lệnh máy hoặc sản lượng. ${NEED_ROOT}`, { title: "Không xóa được" }); return false; }
+      return askForce([o]); // Admin: hộp xác nhận mạnh (lý do + gõ mã đơn)
+    }
     if (await askConfirm(`Xóa đơn ${o.id} (${o.customer} / ${o.spec})? Hành động không thể hoàn tác.`, { danger: true, confirmLabel: "Xóa đơn" })) { try { await onDelete(o.id); return true; } catch (e) { await showAlert(e.message || String(e), { title: "Không xóa được" }); } }
     return false;
   }
   async function bulkDel() {
     const ids = [...selected];
     const bad = blockedDelete(ids);
-    if (bad.length) { await showAlert(`Có ${bad.length} đơn đã có lệnh máy hoặc sản lượng (${bad.slice(0, 5).join(", ")}${bad.length > 5 ? "…" : ""}) nên không thể xóa. Bỏ chọn các đơn này rồi thử lại.`, { title: "Không xóa được" }); return; }
+    if (bad.length) {
+      if (!isRoot || !onForceDelete) { await showAlert(`Có ${bad.length} đơn đã có lệnh máy hoặc sản lượng (${bad.slice(0, 5).join(", ")}${bad.length > 5 ? "…" : ""}). ${NEED_ROOT} Bỏ chọn các đơn này rồi thử lại.`, { title: "Không xóa được" }); return; }
+      const done = await askForce(orders.filter(o => selected.has(o.id)));
+      if (done) setSelected(new Set());
+      return;
+    }
     if (await askConfirm(`Xóa ${ids.length} đơn hàng đã chọn? Hành động không thể hoàn tác.`, { danger: true, confirmLabel: `Xóa ${ids.length} đơn` })) { try { await onBulkDelete(ids); setSelected(new Set()); } catch (e) { await showAlert(e.message || String(e), { title: "Không xóa được" }); } }
   }
   const sel = { className: "mes-input", style: { width: "auto", minWidth: 140 } };
@@ -281,7 +340,7 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
   return rkh("div", null,
     rkh(SectionHeading, { eyebrow: `${list.length} / ${orders.length} đơn hàng`, title: "Đơn hàng & quy trình sản xuất", icon: ClipboardList, iconColor: COLORS.copper,
       action: rkh("div", { style: { display: "flex", gap: 8 } }, rkh(Button, { disabled: list.length === 0, onClick: exportExcel }, rkh(Download, { size: 14 }), " Xuất Excel"), isAdmin && rkh(Button, { onClick: () => (manage ? exitManage() : setManage(true)) }, manage ? "Thoát chọn nhiều" : "Chọn nhiều"), isAdmin && rkh(Button, { variant: "primary", onClick: () => setModal({ kind: "add" }) }, rkh(Plus, { size: 14 }), " Thêm đơn hàng")) }),
-    rkh(GuideBox, { steps: ["Bấm Thêm đơn hàng → nhập thông tin (chọn đơn vị kg hoặc m) → tích các công đoạn cần làm → xác nhận quy trình. Danh sách công đoạn đã xác nhận là nguồn duy nhất để phân lệnh máy.", "Không cần chọn máy ở đây: việc phân máy làm ở tab Kế hoạch sản xuất.", "Cột ĐÃ SẢN XUẤT là sản lượng thành phẩm theo công đoạn cuối của quy trình (không cộng dồn các công đoạn). Đơn đã hoàn thành tự chuyển sang tab Đơn hàng hoàn thành (kèm BOM, lệnh máy, sản lượng).", "Bấm vào thẻ thống kê để lọc nhanh; dùng ô tìm kiếm và các bộ lọc để thu hẹp danh sách. Muốn xóa nhiều đơn: bấm Chọn nhiều (chỉ Quản trị)."] }),
+    rkh(GuideBox, { steps: ["Bấm Thêm đơn hàng → nhập thông tin (chọn đơn vị kg hoặc m) → tích các công đoạn cần làm → xác nhận quy trình. Danh sách công đoạn đã xác nhận là nguồn duy nhất để phân lệnh máy.", "Không cần chọn máy ở đây: việc phân máy làm ở tab Kế hoạch sản xuất.", "Cột ĐÃ SẢN XUẤT là sản lượng thành phẩm theo công đoạn cuối của quy trình (không cộng dồn các công đoạn). Đơn đã hoàn thành tự chuyển sang tab Đơn hàng hoàn thành (kèm BOM, lệnh máy, sản lượng).", "Bấm vào thẻ thống kê để lọc nhanh; dùng ô tìm kiếm và các bộ lọc để thu hẹp danh sách. Muốn xóa nhiều đơn: bấm Chọn nhiều (chỉ Quản trị). Đơn đã có lệnh máy/sản lượng (đang sản xuất) chỉ Admin xóa được — hệ thống hỏi lý do, yêu cầu gõ mã đơn và ghi nhật ký."] }),
     rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(135px,1fr))", gap: 10, marginBottom: 14 } },
       [["Đơn đang hoạt động", "all", COLORS.text], ["Đơn mới", "new", COLORS.blue], ["Chờ sản xuất", "waiting", COLORS.amber], ["Đang sản xuất", "producing", COLORS.green], ["Sắp giao", "soon", COLORS.orange], ["Quá hạn", "overdue", COLORS.red]]
         .map(([l, k, c]) => amgKpiTile(l, cnt[k], c, fStatus === k, () => setFStatus(s => (s === k ? "all" : k)))).concat([amgKpiTile("Đã hoàn thành (lưu trữ)", completedCount || 0, COLORS.violet, false, onNavigate ? () => onNavigate("completed") : undefined, "Bấm để mở tab Đơn hàng hoàn thành")])),
@@ -312,5 +371,6 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
             onView: () => setModal({ kind: "view", order: r.o }), onEdit: () => setModal({ kind: "edit", order: r.o }), onDel: () => del(r.o), onPick: () => toggleSel(r.o.id) })),
           rkh(Pager, { total: list.length, page: pg.page, pageSize, onPage: setPage, onSize: setPageSize }))),
     modal && modal.kind === "view" && modalOrder && rkh(OrderDetailModal, { order: modalOrder, auditLog, extra, runs: rs, entries: entries || [], currentUser, isAdmin, onClose: () => setModal(null), onUpdate, onEdit: () => setModal({ kind: "edit", order: modalOrder }), onDelete: async o => { if (await del(o)) setModal(null); }, onNavigateFocus }),
-    modal && (modal.kind === "add" || modal.kind === "edit") && rkh(OrderEditor, { mode: modal.kind, order: modal.order, orders, runs: rs, machines: machines || [], onSave: handleSave, onClose: () => setModal(null) }));
+    modal && (modal.kind === "add" || modal.kind === "edit") && rkh(OrderEditor, { mode: modal.kind, order: modal.order, orders, runs: rs, machines: machines || [], onSave: handleSave, onClose: () => setModal(null) }),
+    force && rkh(OrderForceDeleteModal, { orders: force.orders, runs: rs, entries: entries || [], extra, onConfirm: onForceDelete, onClose: (ok, res) => { const f = force; setForce(null); if (ok) { setModal(null); if (res && res.ok && res.ok.length > 1) showAlert(`Đã xóa ${res.ok.length} đơn (kèm lệnh máy và sản lượng).`, { title: "Đã xóa" }); } f.resolve(!!ok); } }));
 }

@@ -30,6 +30,7 @@ const amgRunIsLive = run => !!run && AMG_RUN_OPEN.indexOf(run.productionStatus) 
 /* ---------- Quyền theo chức vụ (dùng chung cho giao diện và giao dịch) ---------- */
 function amgFlowCan(user, what) {
   if (!user) return false;
+  if (what === "force_delete") return amgIsRoot(user);       // xóa đơn đang sản xuất / đã có lệnh & sản lượng: CHỈ Admin (không gồm Quản đốc)
   if (amgIsPower(user)) return true;                       // Admin, Quản đốc: toàn quyền
   if (what === "plan") return amgCan(user, "s", "dieuhanh");   // Nhân viên: phân máy, bắt đầu/tạm dừng/kết thúc lệnh
   if (what === "output") return amgCan(user, "t", "dieuhanh"); // Nhân viên: ghi sản lượng
@@ -586,6 +587,63 @@ async function amgFlowAddStageQty({ orderId, stageKey, qty, wireFinishPatch }) {
    - Mọi màn hình dùng CHUNG một danh sách lệnh đã chuẩn hóa (amgNormalizeRun) → trạng thái luôn thống nhất.
    - Lỗi đọc (ví dụ Security Rules chặn productionRuns) KHÔNG còn bị nuốt im lặng: trả về error để giao diện báo rõ,
      tránh tình trạng "đã phân máy nhưng mọi nơi vẫn hiện chưa phân". */
+/* ---------- XÓA ĐƠN KỂ CẢ ĐANG SẢN XUẤT (v53, chỉ Admin) ----------
+   Dùng khi đơn đã có lệnh máy / sản lượng (đường xóa thường bị chặn để bảo toàn dữ liệu). MỘT lượt ghi nguyên tử (cùng cơ chế amgFlowTx):
+     1. Xóa đơn orders/{id}.
+     2. Xóa MỌI lệnh productionRuns của đơn (đang chạy, tạm dừng, đã phân, đã kết thúc, đã hủy).
+     3. Giải phóng khóa máy: machines/{id}.activeRunId của các lệnh bị xóa → chuyển sang lệnh mở kế tiếp của máy (đơn khác) hoặc để trống.
+     4. Xóa các lượt sản lượng productionEntries của đơn và bản sao cùng id trong auditLog (để báo cáo/Tổng quan không còn cộng sản lượng của đơn đã xóa).
+     5. Ghi nhật ký "order_force_delete" (ai, lúc nào, lý do, ảnh chụp tóm tắt đơn/lệnh/sản lượng) — dòng nhật ký này KHÔNG bao giờ bị xóa theo.
+   KHÔNG đụng: phiếu kho, phiếu kiểm tra, phiếu NG, kế hoạch ngày... (bản ghi của phân hệ khác; bảng Kiểm tra dữ liệu sẽ nhắc tham chiếu mồ côi).
+   Đơn đã hoàn thành (kho lưu trữ) vẫn không xóa được ở đây: phải mở lại đơn trước. */
+async function amgFlowForceDeleteOrder({ orderId, reason, allRuns }) {
+  amgFlowRequire("force_delete", "xóa đơn đang sản xuất (chỉ Admin)");
+  const why = String(reason || "").trim();
+  if (why.length < 3) throw new Error("Vui lòng ghi lý do xóa đơn");
+  if (!orderId) throw new Error("Thiếu mã đơn");
+  const dbx = window.__db;
+  return amgFlowTx(async ctx => {
+    const order = await ctx.get(FS.orders, orderId);
+    if (!order) return { missing: true, orderId };
+    if (order.status === "completed") throw new Error(`Đơn ${orderId} đã hoàn thành (dữ liệu lưu trữ). Hãy mở lại đơn trước khi xóa.`);
+    // Quét lại từ kho dữ liệu (không tin danh sách trên màn hình): mọi lệnh và lượt sản lượng của đơn
+    const rcol = await dbx.collection(AMG_FLOW_COLS.runs).get();
+    const runs = rcol.docs.map(d => amgNormalizeRun(Object.assign({ id: d.id }, d.data()))).filter(r => r.orderId === orderId);
+    (order.openRunIds || []).forEach(id => { if (id && !runs.some(r => r.id === id)) runs.push({ id, orderId, machineId: "", productionStatus: "unknown" }); });
+    const runIds = new Set(runs.map(r => r.id));
+    const ecol = await dbx.collection(AMG_FLOW_COLS.entries).get();
+    const entries = ecol.docs.map(d => Object.assign({ id: d.id }, d.data())).filter(e => e.orderId === orderId || runIds.has(e.runId));
+    const acol = await dbx.collection(FS.audit).get();
+    const auditIds = new Set(); // bản sao sản lượng trong nhật ký (cùng id lượt ghi) + dòng sản lượng cũ chỉ có ở nhật ký
+    acol.docs.forEach(d => { const a = d.data(); if (a && a.type === "production_entry" && a.targetId === orderId) auditIds.add(d.id); });
+    entries.forEach(e => auditIds.add(e.id));
+    // Máy bị khóa bởi các lệnh sắp xóa → trả về lệnh mở kế tiếp của máy (đơn khác) hoặc trống
+    const machineIds = [...new Set(runs.map(r => r.machineId).filter(Boolean))];
+    const released = [];
+    for (const mid of machineIds) {
+      const m = await ctx.get(FS.machines, mid);
+      if (!m || !runIds.has(m.activeRunId)) continue;
+      const cand = [];
+      for (const r of (allRuns || [])) if (r && r.machineId === mid && r.orderId !== orderId && cand.indexOf(r.id) < 0) cand.push(r.id);
+      const live = [];
+      for (const id of cand) { const r = await ctx.get(AMG_FLOW_COLS.runs, id); if (r && amgIsOpenRun(r) && r.machineId === mid && r.orderId !== orderId) live.push(r); }
+      const keep = amgSortOpenRuns(live)[0] || null;
+      ctx.set(FS.machines, mid, { activeRunId: keep ? keep.id : null }, true);
+      released.push(mid);
+    }
+    runs.forEach(r => ctx.del(AMG_FLOW_COLS.runs, r.id));
+    entries.forEach(e => ctx.del(AMG_FLOW_COLS.entries, e.id));
+    auditIds.forEach(id => ctx.del(FS.audit, id));
+    ctx.del(FS.orders, orderId);
+    const prog = typeof orderProgress === "function" ? orderProgress(normalizeOrderStages(order)) : null;
+    const liveRuns = runs.filter(amgRunIsLive).length;
+    amgFlowAudit(ctx, "order_force_delete",
+      `Admin xóa đơn ${order.customer || orderId} / ${order.spec || ""} (mã ${orderId}) — lý do: ${why}. Đã xóa: ${runs.length} lệnh máy (${liveRuns} đang mở), ${entries.length} lượt sản lượng${prog ? `, thành phẩm ${fmtNum(prog.completedQty)}/${fmtNum(order.quantity)} ${amgOrderUnit(order)}` : ""}${released.length ? `; giải phóng máy ${released.join(", ")}` : ""}.`,
+      orderId, { reason: why, runCount: runs.length, liveRunCount: liveRuns, entryCount: entries.length, machineIds: released, customer: order.customer || "", spec: order.spec || "", quantity: Number(order.quantity) || 0, completedQty: prog ? prog.completedQty : 0 });
+    return { deleted: true, orderId, runs: runs.length, liveRuns, entries: entries.length, machines: released };
+  });
+}
+
 function useFlowData(enabled) {
   const [runs, setRuns] = useState([]);
   const [entries, setEntries] = useState([]);

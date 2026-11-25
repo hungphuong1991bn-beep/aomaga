@@ -5,7 +5,7 @@ let pass=0,fail=0; const ok=(n,c,x)=>{ if(c){pass++;console.log('PASS '+n);} els
 const store=n=>Object.values(w.__db.__store[n]||{}); const ordr=id=>(w.__db.__store.orders||{})[id];
 const rowIds=()=>[...doc.querySelectorAll('.amg-row[data-order]')].map(r=>r.getAttribute('data-order'));
 const row=id=>doc.querySelector(`.amg-row[data-order="${id}"]`);
-const modal=()=>doc.querySelector('.mes-modal-card');
+const modal=()=>[...doc.querySelectorAll('.mes-modal-card')].pop()||null; // hộp trên cùng (hộp xác nhận xóa xếp chồng lên chi tiết đơn)
 const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdrop'); if(b){ await click(b); await sleep(200);} };
 (async()=>{
   await sleep(300);
@@ -78,12 +78,51 @@ const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdro
   ok('E1. CHỈNH SỬA ĐƠN lưu lên Firebase và ghi nhật ký chỉnh sửa', ordr('OR-1').customer==='Công ty Alpha (đã sửa)'&&store('auditLog').length>auditBefore&&store('auditLog').some(a=>a.targetId==='OR-1'&&/OR-1/.test(JSON.stringify(a))), 'customer='+ordr('OR-1').customer+' audit '+auditBefore+'→'+store('auditLog').length);
   await closeModal();
   // xóa
-  nativeSet(search,'OR-1'); await sleep(250); await click(row('OR-1')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(400);
-  ok('E2. XÓA đơn đã có lệnh/sản lượng bị chặn (bảo toàn dữ liệu), đơn vẫn còn', !!ordr('OR-1')&&/không thể xóa|Không xóa được/.test(txt(doc.body)));
-  const okb=findBtn(/^(Đóng|OK|Đã hiểu|Xác nhận)$/); if(okb) await click(okb); await sleep(200); await closeModal();
+  // v53 — Admin xóa đơn đang sản xuất. Chuẩn bị: OR-2 được phân (chưa chạy) trên KTI-03 + OR-3 đang chạy trên KTI-02 (đơn khác) → phải còn nguyên sau khi xóa OR-1.
+  await A(`await amgFlowAssign({runId:"RR2",orderId:"OR-2",machineId:"KTI-03",stageKey:"keo_tinh",plannedQuantity:500,shift:"Ca Ngày",operator:"B",startNow:false});
+    await amgFlowAssign({runId:"RR3",orderId:"OR-3",machineId:"KTI-02",stageKey:"keo_tinh",plannedQuantity:300,shift:"Ca Ngày",operator:"C",startNow:true});
+    await amgFlowRecordOutput({clientKey:"x3",runId:"RR3",orderId:"OR-3",machineId:"KTI-02",stageKey:"keo_tinh",qty:50});`);
+  await sleep(300);
+  const auditOf=id=>store('auditLog').filter(a=>a.type==='production_entry'&&a.targetId===id);
+  ok('E2-pre. Trước khi xóa: OR-1 có lệnh RR1 + lượt sản lượng (productionEntries & auditLog); KTI-01 đang khóa bởi RR1', store('productionRuns').some(r=>r.id==='RR1')&&store('productionEntries').some(e=>e.orderId==='OR-1')&&auditOf('OR-1').length>0&&(w.__db.__store.machines['KTI-01']||{}).activeRunId==='RR1');
+  nativeSet(search,'OR-1'); await sleep(250); await click(row('OR-1')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(500);
+  const fm=modal(), ft=txt(fm||doc.body);
+  ok('E2. Admin bấm XÓA ĐƠN trên đơn đang sản xuất: hiện hộp xác nhận mạnh (không còn bị chặn), nêu số lệnh máy/lượt sản lượng/máy KTI-01; đơn chưa bị xóa', !!ordr('OR-1')&&/kể cả đang sản xuất/.test(ft)&&/1 lệnh máy/.test(ft)&&/KTI-01/.test(ft)&&/Không hoàn tác|KHÔNG hoàn tác/.test(ft), ft.slice(0,400));
+  const goBtn=()=>doc.querySelector('[data-testid="force-del-go"]'), inR=()=>doc.querySelector('[data-testid="force-del-reason"]'), inC=()=>doc.querySelector('[data-testid="force-del-confirm"]');
+  ok('E2a. Nút "Xóa vĩnh viễn" bị khóa khi chưa nhập lý do và chưa gõ mã đơn', goBtn()&&goBtn().disabled);
+  nativeSet(inR(),'Nhập nhầm đơn'); await sleep(100); ok('E2b. Chỉ có lý do → vẫn khóa', goBtn().disabled);
+  nativeSet(inC(),'OR-9'); await sleep(100); ok('E2c. Gõ sai mã đơn → vẫn khóa', goBtn().disabled);
+  nativeSet(inC(),'or-1'); await sleep(100); ok('E2d. Lý do + gõ đúng mã đơn (không phân biệt hoa/thường) → mở khóa', !goBtn().disabled);
+  await click(goBtn()); await sleep(900);
+  const m1=w.__db.__store.machines['KTI-01']||{};
+  ok('E2e. Xóa xong: đơn OR-1 biến mất khỏi Firebase và danh sách', !ordr('OR-1')&&!row('OR-1'));
+  ok('E2f. Lệnh RR1 và toàn bộ lượt sản lượng của OR-1 bị xóa (productionEntries + bản sao trong auditLog)', !store('productionRuns').some(r=>r.orderId==='OR-1')&&!store('productionEntries').some(e=>e.orderId==='OR-1')&&auditOf('OR-1').length===0);
+  ok('E2g. Khóa máy KTI-01 được giải phóng (không còn trỏ tới lệnh đã xóa); máy KTI-03 của đơn khác vẫn giữ khóa RR2', !m1.activeRunId&&(w.__db.__store.machines['KTI-03']||{}).activeRunId==='RR2'&&(w.__db.__store.machines['KTI-02']||{}).activeRunId==='RR3', 'KTI-01 activeRunId='+m1.activeRunId);
+  ok('E2h. Dữ liệu đơn khác còn nguyên: OR-2, OR-3, lệnh RR2/RR3, sản lượng 50 của OR-3', !!ordr('OR-2')&&!!ordr('OR-3')&&store('productionRuns').some(r=>r.id==='RR2')&&store('productionRuns').some(r=>r.id==='RR3')&&store('productionEntries').some(e=>e.orderId==='OR-3')&&auditOf('OR-3').length>0);
+  const fd=store('auditLog').filter(a=>a.type==='order_force_delete'&&a.targetId==='OR-1')[0];
+  ok('E2i. Nhật ký order_force_delete ghi người xóa, lý do, số lệnh/lượt sản lượng bị xóa; dòng này không bị xóa theo', !!fd&&fd.reason==='Nhập nhầm đơn'&&fd.runCount===1&&fd.entryCount>=1&&/Nhập nhầm đơn/.test(fd.detail)&&!!fd.user, JSON.stringify(fd||{}).slice(0,300));
+  // Quản đốc KHÔNG được xóa đơn đang sản xuất (chặn cả ở tầng dữ liệu, không chỉ ẩn nút)
+  const mgr=await A(`const u=window.__AMG_USER; window.__AMG_USER=Object.assign({},u,{role:"manager"}); let msg="";try{await amgFlowForceDeleteOrder({orderId:"OR-3",reason:"thử",allRuns:[]});}catch(e){msg=e.message}; window.__AMG_USER=u; return msg;`);
+  ok('E2j. Quản đốc gọi xóa-đơn-đang-sản-xuất bị từ chối ở tầng dữ liệu; OR-3 còn nguyên', /Admin/.test(mgr)&&!!ordr('OR-3')&&store('productionRuns').some(r=>r.id==='RR3'), mgr);
+  const noWhy=await A(`let msg="";try{await amgFlowForceDeleteOrder({orderId:"OR-3",reason:" ",allRuns:[]});}catch(e){msg=e.message}; return msg;`);
+  ok('E2k. Thiếu lý do thì tầng dữ liệu từ chối (không chỉ dựa vào nút bị khóa)', /lý do/.test(noWhy)&&!!ordr('OR-3'), noWhy);
+  await closeModal();
+  // Xóa nhiều đơn đang sản xuất cùng lúc (Chọn nhiều)
+  nativeSet(search,''); await sleep(250);
+  await click(findBtn(/^Chọn nhiều$/)); await sleep(250);
+  await click(row('OR-2')); await click(row('OR-3')); await sleep(200);
+  await click(findBtn(/Xóa đã chọn/)); await sleep(500);
+  const bulkTxt=txt(modal()||doc.body);
+  ok('E2l. Chọn nhiều + Xóa đã chọn với đơn đang sản xuất (Admin): hộp xác nhận mạnh, yêu cầu gõ "XOA"', /Xóa 2 đơn/.test(bulkTxt)&&/XOA/.test(bulkTxt)&&!!goBtn()&&goBtn().disabled&&!!ordr('OR-2')&&!!ordr('OR-3'), bulkTxt.slice(0,300));
+  nativeSet(inR(),'Dọn đơn thử'); nativeSet(inC(),'XOA'); await sleep(150); await click(goBtn()); await sleep(1000);
+  ok('E2m. Xác nhận: cả 2 đơn, các lệnh RR2/RR3 và sản lượng đều bị xóa; máy KTI-02/KTI-03 không còn khóa', !ordr('OR-2')&&!ordr('OR-3')&&!store('productionRuns').some(r=>r.orderId==='OR-2'||r.orderId==='OR-3')&&auditOf('OR-3').length===0&&!(w.__db.__store.machines['KTI-03']||{}).activeRunId&&!(w.__db.__store.machines['KTI-02']||{}).activeRunId);
+  { const eb=findBtn(/^(Đóng|OK|Đã hiểu|Xác nhận)$/); if(eb) await click(eb); }
+  await click(findBtn(/^Thoát chọn nhiều$/)||findBtn(/^Thoát$/)); await sleep(200);
+  // Đơn chưa có dữ liệu sản xuất: giữ đường xóa thường (E3/E4)
+  await A(`const stages={};STAGES.forEach(s=>stages[s.key]={done:0,remain:0});await db.collection("orders").doc("OR-3").set(normalizeOrderStages({id:"OR-3",customer:"Công ty Alpha",spec:"0.5",materialCode:"B",quantity:300,orderDate:"2026-11-01",deliveryDate:"2026-12-10",priority:"normal",stages,finishedDone:0,finishedShort:0,routing:["keo_tinh"],routingConfirmed:true}));`); await sleep(400);
   nativeSet(search,'OR-26'); await sleep(250); await click(row('OR-26')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(300);
   ok('E3. Xóa đơn chưa có dữ liệu sản xuất: có hộp xác nhận', /Xóa đơn OR-26/.test(txt(doc.body))&&!!findBtn(/^Xóa đơn$/)); await click(findBtn(/^Xóa đơn$/)); await sleep(700);
-  ok('E4. Sau xác nhận: đơn bị xóa khỏi Firebase và danh sách; lệnh/sản lượng của các đơn khác còn nguyên', !ordr('OR-26')&&!row('OR-26')&&store('productionRuns').some(r=>r.id==='RR1'));
+  ok('E4. Sau xác nhận: đơn bị xóa khỏi Firebase và danh sách; không còn lệnh nào của OR-26', !ordr('OR-26')&&!row('OR-26')&&!store('productionRuns').some(r=>r.orderId==='OR-26'));
   // Kế hoạch / phân máy
   nativeSet(search,'OR-3'); await sleep(250); await click(row('OR-3')); await sleep(400); await click(findBtn(/^LẬP KẾ HOẠCH SẢN XUẤT$/,modal())); await sleep(700);
   const qin=[...doc.querySelectorAll('input.mes-input')].find(i=>/Tìm/.test(i.placeholder||'')||i.value==='OR-3');
