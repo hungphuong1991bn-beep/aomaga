@@ -120,6 +120,29 @@ function GlobalStyle() {
     .mes-iconbtn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:var(--r-sm);border:1px solid var(--c-border);background:var(--c-panel);color:var(--c-dim);cursor:pointer;flex-shrink:0;transition:background .12s ease,color .12s ease;}
     .mes-iconbtn:hover:not(:disabled){background:var(--c-panel2);color:var(--c-text);}
     .mes-iconbtn--danger{color:var(--c-red);}
+    /* ---- Global Header (v52) ---- */
+    .mes-collapse-btn{display:inline-flex;}
+    .mes-clock{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+    .mes-clock-td{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;}
+    .mes-clock-time{font-size:var(--fs-lg);font-weight:700;color:var(--c-text);letter-spacing:.02em;font-variant-numeric:tabular-nums;}
+    .mes-clock-date{font-size:var(--fs-xs);color:var(--c-faint);white-space:nowrap;}
+    .mes-clock-shift{font-size:var(--fs-xs);font-weight:600;padding:3px 10px;border-radius:999px;background:var(--c-panel2);border:1px solid var(--c-border);color:var(--c-dim);white-space:nowrap;}
+    .mes-sync{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid;border-radius:999px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;flex-shrink:0;}
+    .mes-sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .mes-gsearch{position:relative;flex:1 1 auto;max-width:560px;min-width:0;margin:0 auto;}
+    .mes-gsearch-box{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-panel2);position:relative;z-index:95;}
+    .mes-gsearch-box.is-open{background:var(--c-panel);border-color:var(--c-copper);box-shadow:0 0 0 3px rgba(214,17,28,.12);}
+    .mes-gsearch-input{flex:1;min-width:0;border:none;outline:none;background:transparent;color:var(--c-text);font:inherit;font-size:var(--fs-md);}
+    .mes-gsearch-kbd{font-size:11px;padding:1px 6px;border:1px solid var(--c-border);border-radius:5px;color:var(--c-faint);background:var(--c-panel);font-family:inherit;white-space:nowrap;}
+    .mes-gsearch-panel{position:absolute;left:0;right:0;top:42px;z-index:100;max-height:70vh;overflow-y:auto;overscroll-behavior:contain;padding:6px;}
+    .mes-gsearch-gh{font-size:var(--fs-xs);font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--c-faint);padding:8px 8px 4px;}
+    .mes-gsearch-item{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;border:none;background:transparent;padding:7px 10px;border-radius:8px;cursor:pointer;color:var(--c-text);font:inherit;}
+    .mes-gsearch-item.is-active{background:var(--c-panel2);}
+    .mes-gsearch-t{font-weight:600;font-size:var(--fs-md);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mes-gsearch-s{font-size:var(--fs-xs);color:var(--c-faint);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .mes-gsearch-empty{padding:16px;font-size:var(--fs-sm);color:var(--c-dim);}
+    @media (max-width:560px){.mes-topbar-crumb{display:none !important;}.mes-clock{display:none !important;}}
+    @media (max-width:1180px){.mes-clock-date{display:none;}.mes-sync-text{display:none;}.mes-sync{padding:4px 8px;}.mes-gsearch-kbd{display:none;}}
     .mes-input{width:100%;min-height:36px;background:var(--c-panel);border:1px solid var(--c-border2);border-radius:var(--r-md);color:var(--c-text);padding:7px 11px;font-size:var(--fs-md);outline:none;font-family:inherit;transition:border-color .12s ease,box-shadow .12s ease;}
     .mes-input:hover{border-color:var(--c-faint);}
     .mes-input:focus{border-color:var(--c-blue);box-shadow:var(--focus);}
@@ -276,6 +299,13 @@ function GlobalStyle() {
       .mes-content-wrap{padding:12px !important;}
       .mes-topbar{padding:0 12px !important;}
       .mes-topbar-user,.mes-topbar-divider{display:none !important;}
+      .mes-collapse-btn{display:none !important;}
+      .mes-topbar-crumb small{display:none;}
+      .mes-topbar-crumb{max-width:30vw;}
+      .mes-topbar{gap:8px !important;}
+      .mes-topbar-right{gap:6px !important;}
+      .mes-clock-time{font-size:var(--fs-md);}
+      .mes-topbar-right .mes-iconbtn[aria-label^="Đổi giao diện"]{display:none;}
       .mes-card{border-radius:12px;}
       .mes-table{font-size:var(--fs-sm);}
       .mes-table th,.mes-table td{padding:8px 8px;}

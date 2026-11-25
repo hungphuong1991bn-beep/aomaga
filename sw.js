@@ -1,8 +1,8 @@
-/* Service Worker v48.
+/* Service Worker v52.
    - Mã ứng dụng (cùng nguồn): MẠNG TRƯỚC, cache dự phòng khi mất mạng → người dùng luôn nhận bản mới nhất khi có mạng.
    - Thư viện CDN (đã ghim đúng phiên bản): cache trước.
    - Bản mới KHÔNG tự thay thế giữa chừng khi đang nhập liệu: chờ người dùng bấm "Tải lại" trên thanh thông báo. */
-const V = 'mes-v52-modular';
+const V = 'mes-v52-1-workflow'; // đổi tên khi có bản mới để trình duyệt/TV tải lại toàn bộ mã
 const CDN = [
   'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
@@ -35,6 +35,8 @@ const APP = [
   './domain/kpi.js',
   './domain/flow.js',
   './domain/executive.js',
+  './domain/search.js',
+  './domain/opslive.js',
   './data/useAppData.js',
   './data/useExtraData.js',
   './data/flowdata.js',
@@ -69,6 +71,7 @@ const APP = [
   './modules/records/section.js',
   './modules/records/pages_kho_qc.js',
   './modules/records/pages_ops_maint.js',
+  './modules/ops/opsboard.js',
   './modules/records/pages_hr_docs.js',
   './modules/records/trace.js',
   './ui/dialog.js',

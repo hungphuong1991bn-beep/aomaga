@@ -31,14 +31,14 @@ function amgOrderReportHtml(order, A) {
   const kv = (l, v) => `<div><b>${e(l)}</b>${e(v)}</div>`;
   const tbl = (head, rows) => `<table><thead><tr>${head.map(h => `<th>${e(h)}</th>`).join("")}</tr></thead><tbody>${rows.length ? rows.map(r => `<tr>${r.map(c => `<td>${e(c)}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="${head.length}">Không có dữ liệu</td></tr>`}</tbody></table>`;
   return `<h1>BÁO CÁO ĐƠN HÀNG HOÀN THÀNH — ${e(order.id)}</h1><div>AOMAGA MES · In lúc ${e(amgFmtDateTime(new Date().toISOString()))}</div>
-  <div class="kv">${kv("Khách hàng", order.customer || "—")}${kv("Nguyên liệu", order.materialCode || "—")}${kv("Quy cách", order.spec || "—")}${kv("Số lượng đặt", `${f(order.quantity)} ${A.unit}`)}${kv("Sản lượng thành phẩm", `${f(A.rd.finished)} ${A.unit}`)}${kv("Trạng thái", amgCompletedStatusText(order))}${kv("Ngày nhận", amgFmtDate(order.orderDate))}${kv("Ngày giao", order.deliveryDate ? amgFmtDate(order.deliveryDate) : "—")}${kv("Ngày hoàn thành", amgFmtDateTime(order.completedAt))}${kv("Người xác nhận", `${order.completedBy || "—"} (${order.completionMode === "manual" ? "thủ công" : "tự động"})`)}${kv("Thời gian sản xuất (từ bắt đầu đến hoàn thành)", A.prodText)}${kv("Tổng thời gian máy chạy thực tế", A.netText)}</div>
+  <div class="kv">${kv("Khách hàng", order.customer || "—")}${kv("Nguyên liệu", order.materialCode || "—")}${kv("Quy cách", order.spec || "—")}${kv("Số lượng đặt", `${f(order.quantity)} ${A.unit}`)}${kv("Sản lượng thành phẩm", `${f(A.rd.finished)} ${A.unit}`)}${kv("Trạng thái", amgCompletedStatusText(order))}${kv("Ngày nhận", amgFmtDate(order.orderDate))}${kv("Ngày giao", order.deliveryDate ? amgFmtDate(order.deliveryDate) : "—")}${kv("Ngày hoàn thành", amgFmtDateTime(order.completedAt))}${kv("Người thực hiện hoàn thành đơn", `${order.completedBy || "—"}${order.completionSource === "plan" ? " (nút HOÀN THÀNH ĐƠN tại Kế hoạch)" : order.completionSource === "dieuhanh" ? " (nút HOÀN THÀNH ĐƠN tại Điều hành)" : ""}`)}${kv("Thời gian sản xuất (từ bắt đầu đến hoàn thành)", A.prodText)}${kv("Tổng thời gian máy chạy thực tế", A.netText)}</div>
   ${order.completedShort ? `<div class="warn">Hoàn thành thiếu số lượng. Lý do: ${e(order.completionNote || "—")}</div>` : ""}
-  <h2>Quy trình đã thực hiện</h2>${tbl(["Công đoạn", `Sản lượng (${A.unit})`, "Hoàn thành lúc", "Người xác nhận", "Ghi chú"], A.stageRows.map(s => [s.label, f(s.done), s.completedAt ? amgFmtDateTime(s.completedAt) : "—", s.by || "—", s.short ? "Thiếu SL: " + s.reason : ""]))}
+  <h2>Quy trình đã thực hiện</h2>${tbl(["Công đoạn", `Sản lượng (${A.unit})`, "Hoàn thành lúc", "Người hoàn thành", "Ghi chú"], A.stageRows.map(s => [s.label, f(s.done), s.completedAt ? amgFmtDateTime(s.completedAt) : "—", s.by || "—", s.short ? "Thiếu SL: " + s.reason : ""]))}
   <h2>Lịch sử lệnh máy</h2>${tbl(["Máy", "Công đoạn", "Người vận hành", "Ca", "Bắt đầu", "Kết thúc", "Tổng chạy", "Tạm dừng", "Thực tế", "Đã chạy", "Năng suất/giờ"], A.runRows.map(r => [r.machine, r.stage, r.operator, r.shift, r.start ? amgFmtDateTime(r.start) : "—", r.end ? amgFmtDateTime(r.end) : "—", amgHm(r.elapsedMs), amgHm(r.pausedMs), amgHm(r.netMs), `${f(r.produced)} ${r.unit}`, r.rate === null ? "—" : `${f(r.rate)} ${r.unit}/giờ`]))}
   <h2>Lịch sử sản lượng</h2>${tbl(["Thời gian", "Công đoạn", "Máy", "Sản lượng", "Người ghi", "Ghi chú"], A.entries.filter(x => !x.voided).map(x => [amgFmtDateTime(x.enteredAt), amgStageLabel(x.stageKey), x.machineId, `${f(x.qty)} ${x.unit || A.unit}`, x.enteredBy || "", x.note || ""]))}
   <h2>BOM và định mức</h2>${tbl(["Vật tư", "Định mức", "Nhu cầu theo SL đặt", "Ghi chú"], A.bom.map(b => [b.material, `${f(b.norm)} ${b.unit}`, b.total === null ? "—" : `${f(b.total)} ${b.unit}`, b.note]))}
   <h2>Vật tư đã xuất cho đơn</h2>${tbl(["Lô", "Vật tư", "Số lượng"], A.issued.map(i => [i.lot, i.material, `${f(i.qty)} ${i.unit}`]))}
-  <div class="sig"><div>Người lập<br><br><br></div><div>Quản đốc xác nhận<br><br><br></div><div>Giám đốc<br><br><br></div></div>`;
+  <div class="sig"><div>Người lập<br><br><br></div><div>Quản đốc<br><br><br></div><div>Giám đốc<br><br><br></div></div>`;
 }
 
 function CompleteOrderModal({ order, runs, onClose, onDone }) {
@@ -50,10 +50,10 @@ function CompleteOrderModal({ order, runs, onClose, onDone }) {
   const short = cs.short;
   async function submit() {
     if (busy) return; setBusy(true); setError("");
-    try { const r = await amgFlowCompleteOrder({ orderId: order.id, reason, knownRunIds: cs.open.map(x => x.id) }); onDone(r.duplicate ? "Đơn đã được xác nhận trước đó" : `Đơn ${order.id} đã hoàn thành và chuyển sang tab Đơn hàng hoàn thành`); onClose(); } catch (e) { setError(e.message || String(e)); setBusy(false); }
+    try { const r = await amgFlowCompleteOrder({ orderId: order.id, reason, knownRunIds: cs.open.map(x => x.id), source: "plan" }); onDone(r.duplicate ? `Đơn ${order.id} đã được hoàn thành trước đó (có thể người khác vừa thực hiện)` : `Đơn ${order.id} đã hoàn thành và chuyển sang tab Đơn hàng hoàn thành`, order.id); onClose(); } catch (e) { setError(e.message || String(e)); setBusy(false); }
   }
   return rkh(Modal, { title: `HOÀN THÀNH ĐƠN ${order.id}`, onClose, width: 580 },
-    rkh(AmgNotice, { tone: "info" }, "Đây là bước xác nhận cuối cùng (khác với kết thúc lệnh máy và hoàn thành công đoạn). Sau khi xác nhận, đơn rời mọi danh sách đang hoạt động; BOM, lệnh máy và sản lượng được giữ nguyên để tra cứu."),
+    rkh(AmgNotice, { tone: "info" }, "Thành phẩm chưa đủ số lượng đặt nên cần ghi lý do. Sau khi hoàn thành, đơn rời mọi danh sách đang hoạt động và chuyển sang Đơn hàng hoàn thành; BOM, lệnh máy và sản lượng được giữ nguyên để tra cứu."),
     amgSummaryRows(order, [["Thành phẩm", `${fmtNum(rd.finished)} / ${fmtNum(rd.qty)} ${unit}`], ["Quy trình", rd.route.map(amgStageLabel).join(" → ")]]),
     cs.legacy && rkh(AmgNotice, { tone: "info" }, "Đơn cũ chưa xác nhận quy trình: xác nhận theo sản lượng thành phẩm suy từ quy cách."),
     cs.blockers.map((b, i) => rkh(AmgNotice, { key: i, tone: "err" }, b)),
@@ -61,7 +61,7 @@ function CompleteOrderModal({ order, runs, onClose, onDone }) {
     short && rkh(AmgFieldBox, { label: "Lý do hoàn thành thiếu số lượng (bắt buộc)" }, rkh("input", { className: "mes-input", value: reason, onChange: e => setReason(e.target.value), style: { width: "100%" } })),
     !short && rkh(AmgFieldBox, { label: "Ghi chú (không bắt buộc)" }, rkh("input", { className: "mes-input", value: reason, onChange: e => setReason(e.target.value), style: { width: "100%" } })),
     error && rkh(AmgNotice, { tone: "err" }, error),
-    rkh("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, rkh(Button, { onClick: onClose }, "Để sau"),
+    rkh("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, rkh(Button, { onClick: onClose }, "Hủy"),
       rkh(Button, { variant: "primary", disabled: busy || !cs.canConfirm || (short && reason.trim().length < 5), onClick: submit }, busy ? "Đang lưu..." : "HOÀN THÀNH ĐƠN")));
 }
 
@@ -95,7 +95,7 @@ function CompletedDetailModal({ order, runs, entries, auditLog, extra, scrap, on
   const tabs = [["stages", "Công đoạn"], ["runs", "Lịch sử máy"], ["log", "Lịch sử sản lượng"], ["bom", "BOM & định mức"], ["quality", "Chất lượng"], ["ng", "NG / phế"], ["history", "Lịch sử đơn"]];
   const exportDetail = () => amgExportExcelMulti(`don-${order.id}`, [
     { name: "Thông tin", columns: [{ label: "Chỉ tiêu", key: "k" }, { label: "Giá trị", key: "v" }], rows: [["Mã đơn", order.id], ["Khách hàng", order.customer || ""], ["Nguyên liệu", order.materialCode || ""], ["Quy cách", order.spec || ""], ["Đơn vị", u], ["Số lượng đặt", order.quantity], ["Sản lượng thành phẩm", A.rd.finished], ["Ngày nhận", amgFmtDate(order.orderDate)], ["Ngày giao", order.deliveryDate ? amgFmtDate(order.deliveryDate) : ""], ["Ngày hoàn thành", amgFmtDateTime(order.completedAt)], ["Người xác nhận", order.completedBy || ""], ["Chế độ", order.completionMode || ""], ["Trạng thái", amgCompletedStatusText(order)], ["Lý do/ghi chú", order.completionNote || ""], ["Thời gian sản xuất", A.prodText], ["Thời gian máy chạy thực tế", A.netText]].map(([k, v]) => ({ k, v })) },
-    { name: "Công đoạn", columns: [{ label: "Công đoạn", key: "label" }, { label: "Sản lượng (" + u + ")", key: "done" }, { label: "Hoàn thành lúc", export: s => s.completedAt ? amgFmtDateTime(s.completedAt) : "" }, { label: "Người xác nhận", key: "by" }, { label: "Thiếu SL", export: s => s.short ? "Có" : "" }, { label: "Lý do", key: "reason" }], rows: A.stageRows },
+    { name: "Công đoạn", columns: [{ label: "Công đoạn", key: "label" }, { label: "Sản lượng (" + u + ")", key: "done" }, { label: "Hoàn thành lúc", export: s => s.completedAt ? amgFmtDateTime(s.completedAt) : "" }, { label: "Người hoàn thành", key: "by" }, { label: "Thiếu SL", export: s => s.short ? "Có" : "" }, { label: "Lý do", key: "reason" }], rows: A.stageRows },
     { name: "Lệnh máy", columns: [{ label: "Lệnh", key: "id" }, { label: "Máy", key: "machine" }, { label: "Công đoạn", key: "stage" }, { label: "Người vận hành", key: "operator" }, { label: "Ca", key: "shift" }, { label: "Bắt đầu", export: r => r.start ? amgFmtDateTime(r.start) : "" }, { label: "Kết thúc", export: r => r.end ? amgFmtDateTime(r.end) : "" }, { label: "Tổng chạy (phút)", export: r => Math.round(r.elapsedMs / 60000) }, { label: "Tạm dừng (phút)", export: r => Math.round(r.pausedMs / 60000) }, { label: "Thực tế (phút)", export: r => Math.round(r.netMs / 60000) }, { label: "Kế hoạch", key: "planned" }, { label: "Đã chạy", key: "produced" }, { label: "Đơn vị", key: "unit" }, { label: "Năng suất/giờ", export: r => r.rate === null ? "" : r.rate }], rows: A.runRows },
     { name: "Sản lượng", columns: [{ label: "Thời gian", export: e => amgFmtDateTime(e.enteredAt) }, { label: "Công đoạn", export: e => amgStageLabel(e.stageKey) }, { label: "Máy", key: "machineId" }, { label: "Sản lượng", key: "qty" }, { label: "Đơn vị", export: e => e.unit || u }, { label: "NG", export: e => e.ng || "" }, { label: "Người ghi", key: "enteredBy" }, { label: "Đã hủy", export: e => e.voided ? "Có" : "" }, { label: "Ghi chú", key: "note" }], rows: A.entries },
     { name: "BOM", columns: [{ label: "Vật tư", key: "material" }, { label: "Định mức", key: "norm" }, { label: "Đơn vị", key: "unit" }, { label: "Nhu cầu theo SL đặt", export: b => b.total === null ? "" : b.total }, { label: "Ghi chú", key: "note" }], rows: A.bom },
@@ -130,7 +130,7 @@ function CompletedDetailModal({ order, runs, entries, auditLog, extra, scrap, on
       scrapMatch.length > 0 && rkh("div", { style: { marginTop: 10, fontSize: FZ(12), color: COLORS.textFaint } }, "Phế liệu cùng khách hàng & quy cách (đối chiếu gần đúng, phiếu phế không gắn mã đơn):"),
       scrapMatch.map(s => row(`${amgFmtDate(s.date)} · ${amgStageLabel(s.stage)} · ${s.reason || ""}`, `${fmtNum(s.qty)} ${s.unit || ""}`))),
     tab === "history" && rkh("div", null,
-      (order.statusHistory || []).map((h, i) => row(`${amgFmtDateTime(h.at)} · ${h.action === "complete" ? "xác nhận hoàn thành" : h.action === "reopen" ? "mở lại" : "đổi trạng thái"} · ${h.by || ""}`, h.reason || (h.action === "complete" ? (h.short ? "thiếu SL" : "đủ SL") : ""))),
+      (order.statusHistory || []).map((h, i) => row(`${amgFmtDateTime(h.at)} · ${h.action === "complete" ? "hoàn thành đơn" : h.action === "reopen" ? "mở lại" : "đổi trạng thái"} · ${h.by || ""}`, h.reason || (h.action === "complete" ? (h.short ? "thiếu SL" : "đủ SL") : ""))),
       logs.length === 0 && !(order.statusHistory || []).length ? empty("Chưa có nhật ký.") : logs.map(a => row(`${a.user || ""} · ${amgFmtDateTime(a.ts)}`, a.detail))),
     rkh("div", { className: "mes-no-print", style: { marginTop: 12, display: "flex", justifyContent: "flex-end" } }, rkh(Button, { onClick: onClose }, "Đóng")));
 }
@@ -141,21 +141,24 @@ function CompletedOrdersPage({ orders, runs, entries, auditLog, extra, scrap, cu
   const [stage, setStage] = useState("all");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [modal, setModal] = useState(null);
+  const [modal, setModal] = useState(() => { const f = amgTakeFocus("completed"); return f && f.orderId ? { kind: "detail", orderId: f.orderId } : null; });
   const [toast, setToast] = useState("");
+  const [fMach, setFMach] = useState("all");
+  const [fStat, setFStat] = useState("all");
+  const machinesOf = o => [...new Set(amgRunsOfOrder(runs, o.id).map(r => r.machineId).filter(Boolean))];
   const manager = amgFlowCan(currentUser, "manager");
   const done = useMemo(() => orders.filter(o => o.status === "completed").sort((a, b) => String(b.completedAt || "").localeCompare(String(a.completedAt || ""))), [orders]);
-  // Chờ xác nhận: đủ công đoạn bắt buộc (hoặc đơn cũ đã đủ SL) nhưng CHƯA bấm HOÀN THÀNH ĐƠN — kèm lý do nếu còn lệnh mở
-  const pending = useMemo(() => orders.filter(o => o.status !== "completed").map(o => ({ o, cs: amgOrderCompletionState(o, runs) })).filter(x => x.cs.awaiting), [orders, runs]);
   const customers = [...new Set(done.map(o => o.customer || "Chưa rõ"))].sort();
-  const t = q.trim().toLowerCase();
+  const tn = amgSearchNorm(q);
   const list = done.filter(o => {
     if (cust !== "all" && (o.customer || "Chưa rõ") !== cust) return false;
     if (stage !== "all" && amgOrderRoute(o).indexOf(stage) < 0) return false;
+    if (fMach !== "all" && machinesOf(o).indexOf(fMach) < 0) return false;
+    if (fStat !== "all" && (fStat === "short") !== !!o.completedShort) return false;
     const d = String(o.completedAt || "").slice(0, 10);
     if (from && d < from) return false;
     if (to && d > to) return false;
-    return !t || [o.id, o.customer, o.spec, o.materialCode, o.completedBy].some(v => String(v || "").toLowerCase().includes(t));
+    return !tn || [o.id, o.customer, o.spec, o.materialCode, o.completedBy, machinesOf(o).join(" ")].some(v => amgSearchNorm(v).includes(tn)); // không phân biệt hoa thường và dấu tiếng Việt
   });
   // KHÔNG cộng lẫn kg và m: tổng theo từng đơn vị
   const sumBy = fn => { const m = {}; list.forEach(o => { const u = amgOrderUnit(o); m[u] = (m[u] || 0) + fn(o); }); return Object.keys(m).sort().map(u => `${fmtNum(m[u])} ${u}`).join(" · ") || "—"; };
@@ -164,12 +167,12 @@ function CompletedOrdersPage({ orders, runs, entries, auditLog, extra, scrap, cu
   const cols = [
     { key: "id", label: "Mã đơn" }, { key: "customer", label: "Khách hàng" }, { key: "materialCode", label: "Nguyên liệu" }, { key: "spec", label: "Quy cách" },
     { key: "route", label: "Quy trình đã thực hiện", export: o => amgOrderRoute(o).map(amgStageLabel).join(" → ") },
-    { key: "quantity", label: "Số lượng đặt" }, { key: "unit", label: "Đơn vị", export: o => amgOrderUnit(o) }, { key: "fin", label: "Sản lượng thành phẩm", export: o => amgOrderReadiness(o).finished },
+    { key: "quantity", label: "Số lượng đặt" }, { key: "unit", label: "Đơn vị", export: o => amgOrderUnit(o) }, { key: "fin", label: "Sản lượng thành phẩm", export: o => amgOrderReadiness(o).finished }, { key: "pct", label: "Tỷ lệ hoàn thành (%)", export: o => { const r = amgOrderReadiness(o); return r.qty ? Math.round(r.finished / r.qty * 1000) / 10 : ""; } },
     { key: "orderDate", label: "Ngày nhận", export: o => amgFmtDate(o.orderDate) }, { key: "deliveryDate", label: "Ngày giao", export: o => o.deliveryDate ? amgFmtDate(o.deliveryDate) : "" },
     { key: "completedAt", label: "Ngày hoàn thành", export: o => amgFmtDateTime(o.completedAt) },
     { key: "dur", label: "Thời gian sản xuất", export: o => { const sp = amgOrderProductionSpan(o, runs); return amgDurationText(sp.from, o.completedAt || sp.to); } },
     { key: "net", label: "Máy chạy thực tế (phút)", export: o => Math.round(amgSumTimings(amgRunsOfOrder(runs, o.id), Date.now(), o).netMs / 60000) },
-    { key: "by", label: "Người xác nhận", export: o => o.completedBy || "" }, { key: "mode", label: "Chế độ", export: o => o.completionMode === "manual" ? "Thủ công" : "Tự động" },
+    { key: "by", label: "Người hoàn thành", export: o => o.completedBy || "" }, { key: "mode", label: "Cách hoàn thành", export: o => o.completionSource === "plan" ? "Nút HOÀN THÀNH ĐƠN tại Kế hoạch" : o.completionMode === "manual" ? "Thủ công (v48–v51)" : "Tự động" },
     { key: "st", label: "Trạng thái", export: o => amgCompletedStatusText(o) }, { key: "note", label: "Lý do/ghi chú", export: o => o.completionNote || "" },
     { key: "machines", label: "Máy đã chạy", export: o => [...new Set(amgRunsOfOrder(runs, o.id).map(r => r.machineId))].join(", ") }
   ];
@@ -179,30 +182,28 @@ function CompletedOrdersPage({ orders, runs, entries, auditLog, extra, scrap, cu
   return rkh("div", null,
     rkh(SectionHeading, { eyebrow: `${done.length} đơn đã hoàn thành · kho lưu trữ`, title: "Đơn hàng hoàn thành", icon: CheckCircle2, iconColor: COLORS.violet,
       action: rkh("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, rkh(Button, { disabled: list.length === 0, onClick: printList }, "In danh sách"), rkh(Button, { disabled: list.length === 0, onClick: () => amgExportExcel("don-hang-hoan-thanh", cols, list, "Đơn hoàn thành") }, rkh(Download, { size: 14 }), " Xuất Excel")) }),
-    rkh(GuideBox, { steps: ["Đơn chỉ xuất hiện ở đây sau khi người có quyền bấm HOÀN THÀNH ĐƠN (sau khi xong công đoạn cuối, không còn lệnh máy mở). Đơn rời hẳn tab Đơn hàng, BOM, kế hoạch và máy.", "Đơn đủ công đoạn nhưng chưa xác nhận nằm ở khung Chờ xác nhận bên dưới; thiếu số lượng phải có lý do và quyền quản lý.", "Bấm vào đơn để xem công đoạn, lịch sử máy, lịch sử sản lượng, BOM & định mức (chỉ đọc), chất lượng, NG. Có Xuất Excel và In báo cáo.", "Cần sản xuất thêm: Mở lại đơn (quản lý, bắt buộc ghi lý do). Dữ liệu và BOM cũ được giữ nguyên, đơn quay lại danh sách hoạt động."] }),
+    rkh(GuideBox, { steps: ["Đây là kho lưu trữ: đơn xuất hiện ở đây NGAY khi người có quyền bấm HOÀN THÀNH ĐƠN tại Kế hoạch sản xuất (một bước, không cần xác nhận lần hai). Đơn rời hẳn tab Đơn hàng, BOM, kế hoạch và máy.", "Đơn hoàn thành mặc định chỉ đọc. Không có khung chờ xác nhận: đơn chưa hoàn thành vẫn nằm ở Kế hoạch sản xuất.", "Bấm vào đơn để xem công đoạn, lịch sử máy, lịch sử sản lượng, BOM & định mức (chỉ đọc), chất lượng, NG. Có Xuất Excel và In báo cáo.", "Cần sản xuất thêm: Mở lại đơn (quản lý, bắt buộc ghi lý do). Dữ liệu và BOM cũ được giữ nguyên, đơn quay lại danh sách hoạt động."] }),
     toast && rkh("div", { className: "mes-fade-in", style: { position: "fixed", top: 70, right: 24, zIndex: 4000, maxWidth: 420, padding: "12px 16px", borderRadius: 10, fontWeight: 600, color: "#fff", background: COLORS.green, boxShadow: "0 6px 20px rgba(0,0,0,.3)" } }, toast),
     rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))", gap: 10, marginBottom: 14 } },
       amgKpiTile("Đơn hoàn thành", list.length, COLORS.violet), amgKpiTile("Tổng số lượng đặt", sumBy(o => Number(o.quantity) || 0), COLORS.blue), amgKpiTile("Tổng thành phẩm", sumBy(o => amgOrderReadiness(o).finished), COLORS.green),
-      amgKpiTile("Thời gian SX trung bình", avgMs === null ? "—" : amgDurationText(0, avgMs), COLORS.amber), amgKpiTile("Chờ xác nhận", pending.length, COLORS.orange)),
-    pending.length > 0 && rkh("div", { className: "mes-card", style: { padding: 12, marginBottom: 14, border: `1px solid ${COLORS.orange}`, borderLeft: `6px solid ${COLORS.orange}` } },
-      rkh("div", { style: { fontWeight: 800, marginBottom: 6 } }, `Chờ xác nhận hoàn thành đơn (${pending.length})`),
-      rkh("div", { style: { fontSize: FZ(12), color: COLORS.textDim, marginBottom: 8 } }, "Đã xong công đoạn cuối nhưng chưa bấm HOÀN THÀNH ĐƠN. Đơn không tự chuyển; còn lệnh máy mở thì phải kết thúc lệnh trước."),
-      pending.slice(0, 30).map(({ o, cs }) => rkh("div", { key: o.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "6px 0", borderTop: `1px solid ${COLORS.border}`, fontSize: FZ(13), flexWrap: "wrap" } },
-        rkh("span", null, rkh("b", { className: "mes-mono" }, o.id), ` · ${o.customer || ""} · ${o.spec || ""} · thành phẩm ${fmtNum(cs.rd.finished)} / ${fmtNum(cs.rd.qty)} ${amgOrderUnit(o)}`, !amgIsFlowOrder(o) && rkh("span", { style: { color: COLORS.textFaint } }, " · đơn cũ"), cs.open.length > 0 && rkh("span", { style: { color: COLORS.red } }, ` · còn lệnh mở: ${cs.open.map(r => r.machineId).join(", ")}`)),
-        manager ? rkh(Button, { size: "sm", variant: "primary", onClick: () => setModal({ kind: "complete", orderId: o.id }) }, "HOÀN THÀNH ĐƠN") : rkh("span", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, "Chờ Quản đốc/Admin")))),
+      amgKpiTile("Thời gian SX trung bình", avgMs === null ? "—" : amgDurationText(0, avgMs), COLORS.amber)),
     rkh("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 } },
-      rkh("div", { style: { position: "relative", flex: 1, minWidth: 220 } }, rkh(Search, { size: 14, style: { position: "absolute", left: 10, top: 10, color: COLORS.textFaint } }), rkh("input", { className: "mes-input", style: { paddingLeft: 30 }, placeholder: "Tìm mã đơn, khách hàng, quy cách, nguyên liệu, người xác nhận...", value: q, onChange: e => setQ(e.target.value) })),
+      rkh("div", { style: { position: "relative", flex: 1, minWidth: 220 } }, rkh(Search, { size: 14, style: { position: "absolute", left: 10, top: 10, color: COLORS.textFaint } }), rkh("input", { className: "mes-input", style: { paddingLeft: 30 }, placeholder: "Tìm mã đơn, khách hàng, quy cách, nguyên liệu, máy, người hoàn thành...", value: q, onChange: e => setQ(e.target.value) })),
       rkh("select", { className: "mes-input", style: { width: "auto", minWidth: 170 }, value: cust, onChange: e => setCust(e.target.value) }, rkh("option", { value: "all" }, "Mọi khách hàng"), customers.map(c => rkh("option", { key: c, value: c }, c))),
       rkh("select", { className: "mes-input", style: { width: "auto", minWidth: 160 }, value: stage, onChange: e => setStage(e.target.value) }, rkh("option", { value: "all" }, "Mọi công đoạn"), STAGES.map(s => rkh("option", { key: s.key, value: s.key }, s.label))),
+      rkh("select", { className: "mes-input", style: { width: "auto", minWidth: 130 }, value: fMach, onChange: e => setFMach(e.target.value), title: "Máy đã tham gia sản xuất" }, rkh("option", { value: "all" }, "Mọi máy"), [...new Set(done.flatMap(o => machinesOf(o)))].sort(amgNaturalCmp).map(m => rkh("option", { key: m, value: m }, m))),
+      rkh("select", { className: "mes-input", style: { width: "auto", minWidth: 150 }, value: fStat, onChange: e => setFStat(e.target.value), title: "Trạng thái hoàn thành" }, rkh("option", { value: "all" }, "Mọi trạng thái"), rkh("option", { value: "full" }, "Hoàn thành đủ SL"), rkh("option", { value: "short" }, "Hoàn thành thiếu SL")),
       rkh("input", { className: "mes-input", type: "date", style: { width: "auto" }, value: from, onChange: e => setFrom(e.target.value), title: "Hoàn thành từ ngày" }),
       rkh("input", { className: "mes-input", type: "date", style: { width: "auto" }, value: to, onChange: e => setTo(e.target.value), title: "Hoàn thành đến ngày" })),
-    rkh("div", { className: "mes-card" }, list.length === 0 ? rkh(EmptyState, { title: done.length === 0 ? "Chưa có đơn hoàn thành" : "Không có đơn phù hợp bộ lọc", hint: done.length === 0 ? "Đơn sẽ xuất hiện khi được xác nhận HOÀN THÀNH ĐƠN." : undefined }) :
+    rkh("div", { className: "mes-card" }, list.length === 0 ? rkh(EmptyState, { title: done.length === 0 ? "Chưa có đơn hoàn thành" : "Không có đơn phù hợp bộ lọc", hint: done.length === 0 ? "Đơn xuất hiện ngay khi người có quyền bấm HOÀN THÀNH ĐƠN tại Kế hoạch hoặc Điều hành sản xuất." : undefined }) :
       rkh("div", { className: "mes-scroll-x" }, rkh("table", { className: "mes-table", style: { width: "100%" } },
-        rkh("thead", null, rkh("tr", null, ["STT", "Mã đơn", "Khách hàng", "Nguyên liệu", "Quy cách", "Quy trình", "SL đặt", "Thành phẩm", "Ngày nhận", "Ngày giao", "Hoàn thành", "Thời gian SX", "Người xác nhận", "Trạng thái", "Thao tác"].map(h => rkh("th", { key: h }, h)))),
+        rkh("thead", null, rkh("tr", null, ["STT", "Mã đơn", "Khách hàng", "Nguyên liệu", "Quy cách", "Quy trình", "Máy", "SL đặt", "Thành phẩm", "Tỷ lệ HT", "Ngày nhận", "Ngày giao", "Hoàn thành", "Thời gian SX", "Người hoàn thành", "Trạng thái", "Thao tác"].map(h => rkh("th", { key: h }, h)))),
         rkh("tbody", null, list.map((o, i) => { const rd = amgOrderReadiness(o), sp = amgOrderProductionSpan(o, runs), un = amgOrderUnit(o); return rkh("tr", { key: o.id, style: { cursor: "pointer" }, onClick: () => setModal({ kind: "detail", orderId: o.id }) },
           rkh("td", { className: "mes-mono", style: { color: COLORS.textFaint } }, i + 1), rkh("td", { className: "mes-mono", style: { fontWeight: 700 } }, o.id), rkh("td", { style: { fontWeight: 600 } }, o.customer || "—"), rkh("td", null, o.materialCode || "—"), rkh("td", { className: "mes-mono" }, o.spec || "—"),
           rkh("td", { style: { fontSize: FZ(12) } }, amgOrderRoute(o).map(amgStageLabel).join(" → ")),
+          rkh("td", { className: "mes-mono", style: { fontSize: FZ(12) } }, machinesOf(o).join(", ") || "—"),
           rkh("td", { className: "mes-mono" }, fmtNum(o.quantity), rkh("span", { className: "amg-unit" }, un)), rkh("td", { className: "mes-mono", style: { color: COLORS.green, fontWeight: 700 } }, fmtNum(rd.finished), rkh("span", { className: "amg-unit" }, un)),
+          rkh("td", { className: "mes-mono" }, rd.qty ? Math.round(rd.finished / rd.qty * 100) + "%" : "—"),
           rkh("td", null, amgFmtDate(o.orderDate)), rkh("td", null, o.deliveryDate ? amgFmtDate(o.deliveryDate) : "—"), rkh("td", null, amgFmtDateTime(o.completedAt)), rkh("td", null, amgDurationText(sp.from, o.completedAt || sp.to)), rkh("td", null, o.completedBy || "—"),
           rkh("td", null, rkh(Badge, { color: o.completedShort ? COLORS.amber : COLORS.violet }, amgCompletedStatusText(o))),
           rkh("td", { onClick: e => e.stopPropagation() }, rkh("div", { style: { display: "flex", gap: 5 } }, rkh(Button, { size: "sm", onClick: () => setModal({ kind: "detail", orderId: o.id }) }, "Chi tiết"), manager && rkh(Button, { size: "sm", onClick: () => setModal({ kind: "reopen", orderId: o.id }) }, "Mở lại")))); }))))),

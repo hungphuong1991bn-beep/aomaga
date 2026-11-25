@@ -333,7 +333,7 @@ function FinishRunModal({ run, orders, runs, onClose, onDone }) {
       const res = await amgFlowFinishRun({ runId: run.id, completeStage, shortReason, note, knownSiblingRunIds: siblings.map(r => r.id) });
       let msg = `Đã kết thúc lệnh ${run.id} — máy ${run.machineId} đã được giải phóng, lịch sử sản xuất được giữ nguyên.`;
       if (res.stageCompleted && next) msg += ` Đã hoàn thành công đoạn ${amgStageLabel(run.stageKey)}; đơn chuyển sang công đoạn ${amgStageLabel(next)} — hãy phân máy.`;
-      else if (res.readyToComplete) msg += ` Đã hoàn thành công đoạn cuối: đơn ${run.orderId} đủ điều kiện, đang chờ xác nhận HOÀN THÀNH ĐƠN.`;
+      else if (res.readyToComplete) msg += ` Đã hoàn thành công đoạn cuối: đơn ${run.orderId} đủ điều kiện — bấm HOÀN THÀNH ĐƠN tại Kế hoạch sản xuất khi muốn đóng đơn.`;
       else if (res.stageCompleted) msg += ` Đã hoàn thành công đoạn ${amgStageLabel(run.stageKey)}.`;
       onDone(msg, res); onClose();
     } catch (e) { setError(e.message || String(e)); setBusy(false); }

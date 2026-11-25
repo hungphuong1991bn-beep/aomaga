@@ -96,7 +96,7 @@ function amgBucketMeta(key) {
     assigned: { label: "Đã phân máy", color: COLORS.blue },
     running: { label: "Đang chạy", color: COLORS.green },
     paused: { label: "Tạm dừng", color: COLORS.amber },
-    stage_done: { label: "Chờ xác nhận hoàn thành đơn", color: COLORS.violet },
+    stage_done: { label: "Đủ công đoạn — sẵn sàng hoàn thành đơn", color: COLORS.violet },
     waiting_next: { label: "Chờ công đoạn tiếp theo", color: COLORS.orange }
   };
   return m[key] || m.unassigned;
@@ -288,7 +288,7 @@ function amgWorkingStage(order, runs) {
 //   running     ĐANG CHẠY            : có lệnh đã bắt đầu, chưa kết thúc
 //   paused      TẠM DỪNG             : lệnh đang tạm dừng (và không còn lệnh nào đang chạy)
 //   waiting_next CHỜ CÔNG ĐOẠN TIẾP THEO : công đoạn trước đã hoàn thành, công đoạn này chưa phân máy
-//   stage_done  HOÀN THÀNH CÔNG ĐOẠN : mọi công đoạn của quy trình đã hoàn thành
+//   stage_done  ĐỦ CÔNG ĐOẠN : mọi công đoạn của quy trình đã hoàn thành → nút HOÀN THÀNH ĐƠN (một bước) tại Kế hoạch; KHÔNG phải trạng thái chờ xác nhận
 function amgPlanBucket(order, runs) {
   const route = amgOrderRoute(order);
   const cur = amgWorkingStage(order, runs);

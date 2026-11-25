@@ -75,5 +75,18 @@
     b.commit = function () { return denied ? Promise.reject(denied) : oc(); };
     return b;
   };
+  // v52: ghi có điều kiện (casDoc) cũng PHẢI qua cổng quyền — kiểm tra đúng bản ghi sẽ được ghi, cùng quy tắc với set/update/delete
+  if (typeof raw.casDoc === "function") {
+    const oc = raw.casDoc.bind(raw);
+    raw.casDoc = function (col, id, mutator, opts) {
+      return oc(col, id, async cur => {
+        const next = await mutator(cur);
+        if (next === undefined || next === null) return next;
+        const r = check(col, "set", id, next);
+        if (!r.ok) throw deny(col, "set", id, r.reason);
+        return next;
+      }, opts);
+    };
+  }
   raw.__amgGuarded = true;
 })();

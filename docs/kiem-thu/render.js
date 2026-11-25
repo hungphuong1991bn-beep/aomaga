@@ -1,6 +1,7 @@
 const {load}=require('./harness');
 const fs=require('fs');
-const t=load({storage:{amg_mes_offline_db_v1:fs.readFileSync('/tmp/db.json','utf8')}});
+const rt=require('./fakertdb'); const server=rt.makeServer(); server.root=JSON.parse(fs.readFileSync('/tmp/db.json','utf8')); // "tải lại trang": thiết bị mới đọc lại toàn bộ dữ liệu đã lưu trên máy chủ
+const t=load({server});
 const errs=[];
 t.w.console.error=(...a)=>errs.push(a.map(String).join(' ').slice(0,300));
 t.w.addEventListener('error',e=>errs.push('uncaught: '+e.message));

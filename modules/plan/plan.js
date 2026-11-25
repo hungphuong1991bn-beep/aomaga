@@ -36,10 +36,16 @@ function RunChips({ openRuns }) {
     return rkh("span", { key: r.id, className: "amg-pill mes-mono", title: `${r.machineId} · ${amgStageLabel(r.stageKey)} · ${m.label} · ${r.operator || "—"} · ${fmtNum(r.producedQuantity || 0)}/${fmtNum(r.plannedQuantity)}`, style: { background: m.color + "1f", color: m.color, border: `1px solid ${m.color}55` } }, r.machineId);
   }));
 }
-const AMG_PLAN_COLS = "92px minmax(130px,1.5fr) minmax(90px,1fr) 70px minmax(140px,1.6fr) minmax(130px,1.3fr) minmax(110px,1.1fr) 88px 128px 92px";
+const AMG_PLAN_COLS = "92px minmax(130px,1.5fr) minmax(90px,1fr) 104px minmax(140px,1.6fr) minmax(130px,1.3fr) minmax(130px,1.3fr) 88px 128px 92px";
 
+// Người vận hành + ca của các lệnh đang mở (đọc từ chính lệnh máy)
+function RunWho({ openRuns }) {
+  const rs = openRuns || [], ops = [...new Set(rs.map(r => r.operator).filter(Boolean))], sh = [...new Set(rs.map(r => r.shift).filter(Boolean))];
+  if (!rs.length) return null;
+  return rkh("div", { "data-col": "who", style: { fontSize: FZ(11.5), color: COLORS.textDim, marginTop: 3, lineHeight: 1.35 } }, `${ops.join(", ") || "Chưa có người vận hành"}${sh.length ? " · " + sh.join(", ") : ""}`);
+}
 function PlanRow({ i, wide, runs, can, openModal }) {
-  const o = i.order, bm = amgBucketMeta(i.bucket), info = i.info;
+  const o = i.order, bm = amgBucketMeta(i.bucket), info = i.info, rdy = amgOrderReadiness(o);
   const dueColor = i.life.overdue ? COLORS.red : i.life.dueSoon ? COLORS.amber : COLORS.text;
   const pill = (c, t) => rkh("span", { className: "amg-pill", style: { background: c + "1f", color: c } }, t);
   const cust = rkh("div", { style: { minWidth: 0 } }, rkh(Clamp, { text: o.customer, lines: 2, style: { fontWeight: 800 } }), rkh("div", { className: "mes-mono", title: o.id, style: { fontSize: FZ(12), color: COLORS.textFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, o.id));
@@ -48,22 +54,23 @@ function PlanRow({ i, wide, runs, can, openModal }) {
     rkh("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, rkh(ProgressBar, { pct: info.pct }), rkh("span", { className: "mes-mono", style: { fontSize: FZ(12), flexShrink: 0 } }, info.pct === null ? "—" : Math.round(info.pct) + "%")),
     rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, `${fmtNum(info.done)} / ${fmtNum(info.qty)} · còn ${info.remain === null ? "—" : fmtNum(Math.max(0, info.remain))}`)) : rkh("span", { style: { color: COLORS.violet, fontWeight: 800, fontSize: FZ(12) } }, "Đủ công đoạn");
   const due = rkh("div", { className: "mes-mono", style: { color: dueColor, fontWeight: i.life.overdue || i.life.dueSoon ? 800 : 500 } }, o.deliveryDate ? amgFmtDate(o.deliveryDate) : "—", i.life.overdue && rkh("div", { style: { fontSize: FZ(12) } }, "Quá hạn"), i.life.dueSoon && !i.life.overdue && rkh("div", { style: { fontSize: FZ(12) } }, i.life.days === 0 ? "Hôm nay" : `Còn ${i.life.days} ngày`));
-  const act = rkh("div", { onClick: e => e.stopPropagation(), style: { display: "flex", gap: 4, justifyContent: wide ? "flex-start" : "flex-end" } },
+  const act = rkh("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexWrap: "wrap", gap: 4, justifyContent: wide ? "flex-start" : "flex-end" } },
     can.plan && i.stageKey && i.bucket !== "stage_done" && rkh(Button, { size: "sm", variant: "primary", onClick: () => openModal({ kind: "assign", orderId: o.id, stageKey: i.stageKey }) }, "Phân máy"),
+    can.manager && i.bucket === "stage_done" && rkh(Button, { size: "sm", variant: "primary", onClick: () => can.completeOrder(o) }, "HOÀN THÀNH ĐƠN"),
     rkh(Button, { size: "sm", onClick: () => openModal({ kind: "detail", orderId: o.id }) }, "Chi tiết"));
   const edge = bm.color;
   const click = () => openModal({ kind: "detail", orderId: o.id });
   if (wide) return rkh("div", { className: "amg-row", style: { gridTemplateColumns: AMG_PLAN_COLS, borderLeftColor: edge }, onClick: click },
     rkh("div", null, rkh(PriorityBadge, { value: o.priority })), cust,
     rkh("div", { style: { minWidth: 0 } }, rkh(Clamp, { text: o.spec, lines: 2, mono: true }), rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, "NL " + (o.materialCode || "—"))),
-    rkh("div", { className: "mes-mono", style: { textAlign: "right", fontWeight: 700 } }, fmtNum(o.quantity)),
-    rkh(StageChips, { order: o, runs, compact: true }), progress, rkh(RunChips, { openRuns: i.openRuns }), due, pill(bm.color, bm.label), act);
+    rkh("div", { style: { textAlign: "right" } }, rkh("div", { className: "mes-mono", style: { fontWeight: 700 } }, fmtNum(o.quantity) + " " + amgOrderUnit(o)), rkh("div", { "data-col": "finished", style: { fontSize: FZ(11.5), color: COLORS.textDim } }, `xong ${fmtNum(rdy.finished)} · còn ${fmtNum(Math.max(0, (rdy.qty || 0) - rdy.finished))}`)),
+    rkh(StageChips, { order: o, runs, compact: true }), progress, rkh("div", { style: { minWidth: 0 } }, rkh(RunChips, { openRuns: i.openRuns }), rkh(RunWho, { openRuns: i.openRuns })), due, pill(bm.color, bm.label), act);
   return rkh("div", { className: "amg-row amg-row--card", style: { borderLeftColor: edge }, onClick: click },
     rkh("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "flex-start" } }, rkh("div", { style: { flex: "1 1 180px", minWidth: 0 } }, cust), rkh("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } }, rkh(PriorityBadge, { value: o.priority }), pill(bm.color, bm.label))),
     rkh(StageChips, { order: o, runs, compact: true }),
     rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "6px 12px" } },
       rkh(KV, { label: "Quy cách / NL" }, `${o.spec || "—"} · ${o.materialCode || "—"}`), rkh(KV, { label: "Số lượng" }, rkh("span", { className: "mes-mono" }, fmtNum(o.quantity))),
-      rkh(KV, { label: "Máy phụ trách" }, rkh(RunChips, { openRuns: i.openRuns })), rkh(KV, { label: "Ngày giao", style: { color: dueColor } }, due)),
+      rkh(KV, { label: "Đã hoàn thành" }, `${fmtNum(rdy.finished)} / ${fmtNum(o.quantity)} ${amgOrderUnit(o)}`), rkh(KV, { label: "Máy phụ trách" }, rkh("div", null, rkh(RunChips, { openRuns: i.openRuns }), rkh(RunWho, { openRuns: i.openRuns }))), rkh(KV, { label: "Ngày giao", style: { color: dueColor } }, due)),
     progress, act);
 }
 
@@ -105,8 +112,8 @@ function UnconfirmedPanel({ orders, isAdmin, openModal }) {
 }
 
 /* ===================== MÀN 1: KẾ HOẠCH & PHÂN CÔNG ===================== */
-function PlanBoard({ orders, machines, runs, can, openModal, isAdmin }) {
-  const [q, setQ] = useState("");
+function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ }) {
+  const [q, setQ] = useState(initialQ || "");
   const [bucket, setBucket] = useState("all");
   const [stage, setStage] = useState("all");
   const [prio, setPrio] = useState("all");
@@ -197,8 +204,8 @@ function OrderPlanDetail({ order, runs, machines, orders, auditLog, can, openMod
       rows.map(([a, b]) => rkh("div", { key: a }, rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint, fontWeight: 600 } }, a), rkh("div", { style: { fontSize: FZ(14), fontWeight: 700, wordBreak: "break-word" } }, b)))),
     life.overdue && rkh(AmgNotice, { tone: "err" }, `Đơn quá hạn giao ${Math.abs(life.days)} ngày.`),
     !amgIsFlowOrder(order) && rkh(AmgNotice, { tone: "info" }, "Đơn cũ: công đoạn được suy từ quy cách. Để đơn vào kế hoạch mặc định và có quy trình xác nhận, mở tab Đơn hàng → Chỉnh sửa → Xác nhận quy trình."),
-    order.status !== "completed" && rd.allStages && rkh(AmgNotice, { tone: rd.qtyMet ? "ok" : "warn" }, (rd.qtyMet ? "Đã hoàn thành mọi công đoạn và đủ số lượng." : `Đã hoàn thành mọi công đoạn nhưng thành phẩm ${fmtNum(rd.finished)} chưa đủ ${fmtNum(rd.qty)}.`) + (amgRunsOfOrder(runs, order.id).some(amgIsOpenRun) ? " Còn lệnh đang mở — kết thúc lệnh trước khi hoàn thành đơn." : " Đơn chờ xác nhận HOÀN THÀNH ĐƠN."),
-      can.manager && rkh("div", { style: { marginTop: 8 } }, rkh(Button, { size: "sm", variant: "primary", onClick: () => openModal({ kind: "complete", orderId: order.id }) }, "HOÀN THÀNH ĐƠN"))),
+    order.status !== "completed" && rd.allStages && rkh(AmgNotice, { tone: rd.qtyMet ? "ok" : "warn" }, (rd.qtyMet ? "Đã hoàn thành mọi công đoạn và đủ số lượng." : `Đã hoàn thành mọi công đoạn nhưng thành phẩm ${fmtNum(rd.finished)} chưa đủ ${fmtNum(rd.qty)}.`) + (amgRunsOfOrder(runs, order.id).some(amgIsOpenRun) ? " Còn lệnh đang mở — kết thúc lệnh trước khi hoàn thành đơn." : " Bấm HOÀN THÀNH ĐƠN để đóng đơn và chuyển sang Đơn hàng hoàn thành."),
+      can.manager && rkh("div", { style: { marginTop: 8 } }, rkh(Button, { size: "sm", variant: "primary", onClick: () => can.completeOrder(order) }, "HOÀN THÀNH ĐƠN"))),
     route.map((k, idx) => {
       const st = amgStageInfo(order, runs, k), c = amgStageColor(k), asg = amgStageAssignable(order, k);
       const stLabel = st.state === "complete" ? "Hoàn thành công đoạn" : st.state === "running" ? "Đang sản xuất" : st.state === "paused" ? "Tạm dừng" : st.state === "assigned" ? "Đã phân máy" : "Chưa phân máy";
@@ -353,11 +360,11 @@ function TVWall({ machines, runs, orders, onClose }) {
 }
 
 /* ===================== MÀN 2: GIÁM SÁT MÁY MÓC ===================== */
-function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, catalogProps }) {
+function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, catalogProps, initialQ }) {
   const [sub, setSub] = useState("cards");
   const [group, setGroup] = useState("all");
   const [status, setStatus] = useState("all");
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(initialQ || "");
   const [tv, setTv] = useState(false);
   const mm = machines.filter(m => amgMachineStage(m));
   const cnt = { running: 0, assigned: 0, paused: 0, idle: 0, broken: 0, maintenance: 0 };
@@ -394,13 +401,38 @@ function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, c
 }
 
 /* ===================== TRANG KẾ HOẠCH SẢN XUẤT ===================== */
-function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff, currentUser, isAdmin, canEdit, onUpdateOrder, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed }) {
+function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff, currentUser, isAdmin, canEdit, onUpdateOrder, onNavigate, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed }) {
   const { showAlert } = useDialog();
-  const [screen, setScreen] = useState("plan");
-  const [modal, setModal] = useState(null);
+  const focus0 = useState(() => amgTakeFocus("machines"))[0]; // từ tìm kiếm toàn hệ thống (máy / lệnh sản xuất)
+  const [screen, setScreen] = useState(focus0 && focus0.screen ? focus0.screen : "plan");
+  // Điều hướng từ Điều hành / Đơn hàng / tìm kiếm: mở sẵn đúng hộp thoại cho đúng đối tượng (quyền vẫn được kiểm tra lại ở tầng nghiệp vụ)
+  const [modal, setModal] = useState(() => {
+    const f = focus0; if (!f) return null;
+    if (f.assign && amgFlowCan(currentUser, "plan")) return { kind: "assign", orderId: f.assign.orderId, stageKey: f.assign.stageKey, machineId: f.assign.machineId };
+    if (f.output && amgFlowCan(currentUser, "output")) return { kind: "output", runId: f.output };
+    if (f.history) return { kind: "history", machineId: f.history };
+    return null;
+  });
   const [toast, setToast] = useState(null);
+  const busyComplete = React.useRef({});
   const can = { plan: amgFlowCan(currentUser, "plan"), output: amgFlowCan(currentUser, "output"), manager: amgFlowCan(currentUser, "manager"), editMachines: canEdit };
-  const notify = (msg, tone) => { setToast({ msg, tone: tone || "ok" }); setTimeout(() => setToast(null), 6500); };
+  const toastTimer = React.useRef(null);
+  const notify = (msg, tone, openOrderId) => { if (toastTimer.current) clearTimeout(toastTimer.current); setToast({ msg, tone: tone || "ok", openOrderId: openOrderId || null }); toastTimer.current = setTimeout(() => { toastTimer.current = null; setToast(null); }, openOrderId ? 12000 : 6500); };
+  // HOÀN THÀNH ĐƠN MỘT BƯỚC: kiểm tra điều kiện → hoàn thành ngay (không hộp xác nhận lần hai). Chỉ khi thiếu số lượng mới mở hộp nhập lý do (bắt buộc theo quy định).
+  async function completeOrderNow(order) {
+    if (!order || busyComplete.current[order.id]) return;
+    busyComplete.current[order.id] = true;
+    try {
+      const r = await amgCompleteOrderOneStep(order, runs, { source: "plan" });
+      if (r.status === "blocked") { await showAlert(r.blockers.join("\n"), { title: "Chưa hoàn thành được đơn " + order.id }); return; }
+      if (r.status === "need_reason") { setModal({ kind: "complete", orderId: order.id }); return; }
+      setModal(null);
+      notify(r.status === "duplicate" ? `Đơn ${order.id} đã được hoàn thành trước đó (có thể người khác vừa thực hiện)` : `Đơn ${order.id} đã hoàn thành và chuyển sang Đơn hàng hoàn thành`, "ok", order.id);
+    } catch (e) { await showAlert(e.message || String(e), { title: "Không hoàn thành được đơn" }); }
+    finally { delete busyComplete.current[order.id]; }
+  }
+  can.completeOrder = completeOrderNow;
+  const openCompleted = id => { window.__AMG_FOCUS = { tab: "completed", orderId: id }; if (onNavigate) onNavigate("completed"); };
   async function act(fn, okMsg) {
     try { const r = await fn(); notify(r && r.duplicate ? "Thao tác đã được ghi nhận trước đó" : okMsg); } catch (e) { await showAlert(e.message || String(e), { title: "Không thực hiện được" }); }
   }
@@ -412,8 +444,8 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
   const guide = ["Tạo đơn ở tab Đơn hàng, tích các công đoạn cần làm và xác nhận quy trình — đơn tự xuất hiện ở đây. Đơn chưa xác nhận quy trình nằm riêng và chưa phân lệnh được.",
     "Bấm + Phân lệnh: (1) chọn công đoạn → (2) chọn máy → (3) chọn đơn (chỉ đơn có công đoạn đó trong quy trình) → nhập số lượng kế hoạch, ca, người vận hành → Xác nhận phân lệnh → Xác nhận bắt đầu chạy máy.",
     "Thẻ máy hiện đơn, đồng hồ thời gian sản xuất thực tế, tạm dừng, sản lượng (kg hoặc m) và năng suất trung bình. Ghi sản lượng nhiều lần trong ca ngay trên thẻ máy.",
-    "BA VIỆC KHÁC NHAU: Kết thúc lệnh = giải phóng máy · Hoàn thành công đoạn = chuyển công đoạn kế · Hoàn thành đơn = người có quyền bấm HOÀN THÀNH ĐƠN sau khi xong công đoạn cuối.",
-    "Chỉ khi xác nhận HOÀN THÀNH ĐƠN, đơn mới rời mọi danh sách đang hoạt động (Đơn hàng, BOM, kế hoạch, máy) và sang tab Đơn hàng hoàn thành — không dữ liệu nào bị xóa.",
+    "BA VIỆC KHÁC NHAU: Kết thúc lệnh = giải phóng máy · Hoàn thành công đoạn = chuyển công đoạn kế · Hoàn thành đơn = người có quyền bấm HOÀN THÀNH ĐƠN (một bước) sau khi xong công đoạn cuối; kết thúc lệnh không bao giờ tự hoàn thành đơn.",
+    "Bấm HOÀN THÀNH ĐƠN là đơn rời ngay mọi danh sách đang hoạt động (Đơn hàng, BOM, kế hoạch, máy) và sang tab Đơn hàng hoàn thành — không cần xác nhận lần hai, không dữ liệu nào bị xóa.",
     "Màn hình TV: Giám sát máy móc → Màn hình TV (Esc để thoát)."];
   return rkh("div", null,
     rkh(SectionHeading, { eyebrow: `${orders.filter(o => amgIsActiveOrder(o) && amgIsFlowOrder(o)).length} đơn trong kế hoạch · ${machines.filter(m => amgMachineStage(m)).length} máy`, title: "Kế hoạch sản xuất & phân công máy", icon: Cog, iconColor: COLORS.blue,
@@ -421,11 +453,11 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     rkh(GuideBox, { steps: guide }),
     flowError && rkh(AmgNotice, { tone: "err" }, "⛔ " + flowError),
     can.plan && rkh(IntegrityPanel, { issues, runs, can, openModal: setModal, act }),
-    toast && rkh("div", { className: "mes-fade-in", style: { position: "fixed", top: 70, right: 24, zIndex: 4000, maxWidth: 420, padding: "12px 16px", borderRadius: 10, fontSize: FZ(14), fontWeight: 600, color: "#fff", background: toast.tone === "ok" ? COLORS.green : COLORS.red, boxShadow: "0 6px 20px rgba(0,0,0,.3)" } }, toast.msg),
+    toast && rkh("div", { className: "mes-fade-in", style: { position: "fixed", top: 70, right: 24, zIndex: 4000, maxWidth: 420, padding: "12px 16px", borderRadius: 10, fontSize: FZ(14), fontWeight: 600, color: "#fff", background: toast.tone === "ok" ? COLORS.green : COLORS.red, boxShadow: "0 6px 20px rgba(0,0,0,.3)" } }, toast.msg, toast.openOrderId && onNavigate && rkh("div", { style: { marginTop: 8 } }, rkh(Button, { size: "sm", onClick: () => openCompleted(toast.openOrderId) }, "Mở chi tiết đơn đã hoàn thành"))),
     rkh("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
       [["plan", "Kế hoạch & phân công sản xuất"], ["monitor", "Giám sát máy móc"]].map(([k, l]) => rkh("button", { key: k, onClick: () => setScreen(k), className: "mes-btn", style: { padding: "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: FZ(14), border: `2px solid ${screen === k ? COLORS.copper : COLORS.border}`, background: screen === k ? `${COLORS.copper}16` : COLORS.bgPanel, color: screen === k ? COLORS.copper : COLORS.textDim } }, l))),
-    screen === "plan" ? rkh(PlanBoard, { orders, machines, runs, can, openModal: setModal, isAdmin }) :
-      rkh(MonitorScreen, { machines, runs, orders, entries, can, openModal: setModal, act, catalogProps: { machines, isAdmin, canEdit, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed } }),
+    screen === "plan" ? rkh(PlanBoard, { orders, machines, runs, can, openModal: setModal, isAdmin, initialQ: focus0 && focus0.q ? focus0.q : "" }) :
+      rkh(MonitorScreen, { initialQ: focus0 && focus0.q ? focus0.q : "", machines, runs, orders, entries, can, openModal: setModal, act, catalogProps: { machines, isAdmin, canEdit, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed } }),
     modal && modal.kind === "detail" && ordObj && rkh(OrderPlanDetail, { order: ordObj, runs, machines, orders, auditLog, can, openModal: setModal, onClose: close, act }),
     modal && modal.kind === "assign" && rkh(AssignModal, { order: ordObj || undefined, orders, machines, runs, staff, fixedMachine: macObj || undefined, initialStage: modal.stageKey, onClose: close, onDone: (m, newRun, askStart) => { notify(m); if (askStart && newRun) setTimeout(() => setModal({ kind: "start", runId: newRun.id }), 80); } }),
     modal && modal.kind === "start" && run && rkh(StartConfirmModal, { run, orders, onClose: close, onDone: m => notify(m) }),
@@ -433,9 +465,9 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     modal && modal.kind === "routing" && ordObj && rkh(OrderEditor, { mode: "edit", order: ordObj, orders, runs, machines, onSave: async ({ f, routing }) => { await onUpdateOrder(Object.assign({ id: ordObj.id }, amgOrderBaseFromEditor(f, routing, currentUser))); notify(`Đã xác nhận quy trình đơn ${ordObj.id} — đơn đã vào kế hoạch`); }, onClose: close }),
     modal && modal.kind === "output" && run && rkh(OutputModal, { run, orders, machines, entries, onClose: close, onDone: m => notify(m) }),
     modal && modal.kind === "pause" && run && rkh(PauseModal, { run, onClose: close, onDone: m => notify(m) }),
-    modal && modal.kind === "finish" && run && rkh(FinishRunModal, { run, orders, runs, onClose: close, onDone: (m, res) => { notify(m); if (res && res.readyToComplete && can.manager) setTimeout(() => setModal({ kind: "complete", orderId: run.orderId }), 120); } }),
+    modal && modal.kind === "finish" && run && rkh(FinishRunModal, { run, orders, runs, onClose: close, onDone: m => notify(m) }),
     modal && modal.kind === "cancel" && run && rkh(CancelRunModal, { run, onClose: close, onDone: m => notify(m) }),
     modal && modal.kind === "history" && macObj && rkh(MachineHistoryModal, { machine: macObj, runs, orders, entries, onClose: close }),
     modal && modal.kind === "status" && macObj && rkh(MachineStatusModal, { machine: macObj, isAdmin: canEdit, canDelete: isAdmin, onClose: close, onSave: (id, st, note) => onUpdateMachine(id, st, note), onDelete: onDeleteMachine }),
-    modal && modal.kind === "complete" && ordObj && rkh(CompleteOrderModal, { order: ordObj, runs, onClose: close, onDone: m => notify(m) }));
+    modal && modal.kind === "complete" && ordObj && rkh(CompleteOrderModal, { order: ordObj, runs, onClose: close, onDone: (m, id) => notify(m, "ok", id) }));
 }

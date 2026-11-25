@@ -27,6 +27,7 @@ async function output(machine,q){ await clickText(/^Ghi sản lượng$/,cardOf(
   await mk('DP001',['keo_trung','keo_tinh','keo_sieu_tinh','u_nhiet'],1000,true); await mk('DP002',['keo_tinh','keo_sieu_tinh'],500); await mk('DP003',['keo_trung','keo_tinh'],300);
   db.__seed('orders','DP-OLD',{id:'DP-OLD',customer:'KH-DPOLD',spec:'0.2',quantity:100,stages:{},orderDate:'2026-10-01'});
   await sleep(200);
+  Object.keys(db.__store.orders||{}).filter(id=>!/^DP/.test(id)).forEach(id=>w.__server.patch({['orders/'+id]:null})); await sleep(300); // cô lập dữ liệu: bỏ đơn mẫu do app tự gieo khi CSDL trống
   const inputs=[...doc.querySelectorAll('input')]; nativeSet(inputs[0],'admin'); nativeSet(inputs[1],'test'); await sleep(50);
   await clickText(/^Đăng nhập/); await sleep(800);
 
@@ -44,7 +45,7 @@ async function output(machine,q){ await clickText(/^Ghi sản lượng$/,cardOf(
   ok('1d. Kéo siêu tinh không có đơn đủ điều kiện (DP001/DP002 chưa có SL công đoạn trước)', enabledOpts(sel).length===0, JSON.stringify(enabledOpts(sel)));
   await clickText(/^Hủy$/,modal()); await sleep(200);
   const MT=(await stageMachine('ma_thiec'))[0]; await wizardOpen('Mạ thiếc'); await clickText(new RegExp('^'+MT+'$'),modal()); await sleep(200); ok('1e. Mạ thiếc: không đơn nào có công đoạn này trong routing → danh sách trống', enabledOpts(modal().querySelector('select.mes-input')).length===0 && !/DP00[123]/.test([...modal().querySelector('select.mes-input').options].map(o=>o.text).join('|'))); await clickText(/^Hủy$/,modal()); await sleep(200);
-  ok('1f. Đơn chưa xác nhận quy trình nằm khung riêng ở Kế hoạch', /1 đơn chưa xác nhận quy trình/.test(txt(doc.body)));
+  ok('1f. Đơn chưa xác nhận quy trình nằm khung riêng ở Kế hoạch', /1 đơn chưa xác nhận quy trình/.test(txt(doc.body)), (txt(doc.body).match(/\d+ đơn chưa xác nhận quy trình/)||['không thấy khung'])[0]+' | tổng đơn trong CSDL: '+store('orders').length);
 
   // 3-8. Phân DP001 vào máy kéo trung, xác nhận chạy, ghi 100 kg, tạm dừng/tiếp tục, kết thúc
   await wizardRun('Kéo trung',KT,'DP001','Nguyễn A',600);
@@ -89,8 +90,12 @@ async function output(machine,q){ await clickText(/^Ghi sản lượng$/,cardOf(
   await go(/Giám sát máy móc/); await output(UN,1000);
   await clickText(/^Kết thúc lệnh$/,cardOf(UN)); await sleep(300); m=modal(); const cb2=[...m.querySelectorAll('input[type=checkbox]')][0]; if(cb2&&!cb2.checked) await click(cb2); await sleep(100);
   await click(findBtn(/^Xác nhận|^Kết thúc/,m)); await sleep(1200);
-  ok('10. Xong công đoạn cuối: hiện hộp HOÀN THÀNH ĐƠN, đơn CHƯA completed', !!modal()&&/HOÀN THÀNH ĐƠN DP001/.test(txt(modal()))&&ordr('DP001').status!=='completed', modal()&&txt(modal()).slice(0,150));
-  await click(findBtn(/^HOÀN THÀNH ĐƠN$/,modal())); await sleep(900);
+  ok('10. V52: Xong công đoạn cuối KHÔNG tự mở hộp xác nhận và KHÔNG tự hoàn thành đơn (đơn CHƯA completed)', !modal()&&ordr('DP001').status!=='completed', modal()&&txt(modal()).slice(0,150));
+  await go(/^Kế hoạch & phân công sản xuất$/);
+  const row10=rowOf('DP001'); ok('10b. V52: Kế hoạch hiện đơn ở nhóm "Đủ công đoạn" + nút HOÀN THÀNH ĐƠN; không còn chữ "Chờ xác nhận hoàn thành đơn"', !!row10&&/Đủ công đoạn/.test(txt(row10))&&!!findBtn(/^HOÀN THÀNH ĐƠN$/,row10)&&!/Chờ xác nhận hoàn thành đơn/.test(txt(doc.body)), row10&&txt(row10).slice(0,200));
+  await click(findBtn(/^HOÀN THÀNH ĐƠN$/,row10)); await sleep(1200);
+  ok('10c. V52: MỘT lần bấm → đơn completed ngay, KHÔNG có hộp xác nhận lần hai, đơn rời Kế hoạch', !modal()&&ordr('DP001').status==='completed'&&!rowOf('DP001'), modal()&&txt(modal()).slice(0,150));
+  ok('10d. V52: có thông báo thành công kèm nút mở chi tiết đơn đã hoàn thành', /đã hoàn thành và chuyển sang Đơn hàng hoàn thành/.test(txt(doc.body))&&!!findBtn(/Mở chi tiết đơn đã hoàn thành/), 'msg='+/đã hoàn thành và chuyển sang Đơn hàng hoàn thành/.test(txt(doc.body))+' btn='+!!findBtn(/Mở chi tiết/)+' | '+(txt(doc.body).match(/Đơn DP001[^.]{0,80}/)||['-'])[0]);
   const d=ordr('DP001'); ok('11. order.status=completed + completedAt/By/Mode + lịch sử', d.status==='completed'&&!!d.completedAt&&d.completedBy==='Quản trị'&&d.completionMode==='manual'&&d.statusHistory.slice(-1)[0].action==='complete', JSON.stringify([d.status,d.completedBy,d.completionMode]));
   ok('11b. Không xóa gì: 5 lệnh, BOM còn', store('productionRuns').filter(r=>r.orderId==='DP001').length===5&&d.bom.length===1, store('productionRuns').length);
 
@@ -113,7 +118,7 @@ async function output(machine,q){ await clickText(/^Ghi sản lượng$/,cardOf(
   nativeSet(stSel,'ma_thiec'); await sleep(200); ok('16. Lọc công đoạn Mạ thiếc → không có đơn', !/DP001/.test(txt(doc.querySelector('table')||doc.body))||/Không có đơn/.test(txt(doc.body))); nativeSet(stSel,'u_nhiet'); await sleep(200); ok('16b. Lọc Ủ nhiệt → thấy DP001', /DP001/.test(txt(doc.body)));
 
   // 17. Thiết bị khác (cửa sổ thứ hai dùng chung CSDL) + tải lại
-  const E2=require('./e2e_lib').boot({sharedDb:db}); await E2.sleep(500);
+  const E2=require('./e2e_lib').boot({server:w.__server}); await E2.sleep(500);
   ok('17. Thiết bị khác đọc cùng dữ liệu: DP001 completed', JSON.parse(await E2.A('const s=await db.collection("orders").doc("DP001").get();return JSON.stringify(s.data())')).status==='completed');
   ok('17b. Dữ liệu 5 lệnh + lượt ghi còn nguyên', store('productionEntries').length>=5);
 

@@ -20,7 +20,7 @@ function amgActualOutput(auditLog, date, orderId, stageKey) {
 }
 
 /* ---------------- ĐIỀU HÀNH ---------------- */
-function OpsPage({ extra, orders, machines, staff, auditLog, currentUser }) {
+function OpsPage({ extra, orders, machines, staff, auditLog, currentUser, runs, entries, onNavigateFocus }) {
   const plans = extra.plans || [], hand = extra.handovers || [];
   const [tv, setTv] = useState(false);
   const [now, setNow] = useState(new Date());
@@ -138,14 +138,16 @@ function OpsPage({ extra, orders, machines, staff, auditLog, currentUser }) {
           logs.length ? logs.map(a => rkh("div", { key: a.id, style: { padding: "4px 0", borderBottom: `1px solid ${COLORS.border}`, fontSize: 12 * big } }, `${amgFmtDateTime(a.ts && a.ts.toDate ? a.ts.toDate().toISOString() : a.ts)} · ${a.user || ""} · ${a.detail || a.type}`)) : rkh("div", { style: { color: COLORS.textDim } }, "Chưa có nhật ký."))));
   };
 
-  if (tv) return rkh("div", { style: { position: "fixed", inset: 0, zIndex: 200, background: COLORS.bg, padding: 20, overflow: "auto" } }, live());
+  const board = (isTv) => rkh(OpsLiveBoard, { orders, machines, runs: runs || [], entries: entries || [], extra, currentUser, onNav: onNavigateFocus, tv: isTv, onTv: () => { setTv(true); try { if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen(); } catch (e) {} }, onExit: () => { setTv(false); try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen(); } catch (e) {} } });
+  if (tv) return board(true);
 
   return rkh(PageFrame, {
     eyebrow: "Điều hành", title: "Trung tâm điều hành sản xuất", subtitle: "Kế hoạch ngày/tuần, ca, máy, tiến độ và bàn giao ca", icon: CalendarIcon,
-    guide: ["Tab “Theo dõi trực tiếp” cho thấy ca hiện tại, máy, kế hoạch/thực tế, việc tiếp theo và nhật ký.", "Bấm “Chế độ TV” để hiển thị toàn màn hình, chữ lớn, không có nút sửa – dùng cho màn hình xưởng.", "Kế hoạch: giao máy, đơn hàng, công đoạn và sản lượng; máy hỏng không giao được.", "Thực tế lấy tự động từ nhập liệu sản lượng – không cần nhập hai lần.", "Cuối ca lập biên bản bàn giao; ca sau bấm “Xác nhận đã nhận ca”."]
+    guide: ["Tab “Giám sát sản xuất” là bảng điều khiển trực tiếp: KPI nhà máy, thẻ từng máy (đồng hồ chạy thực), đơn đang sản xuất, cảnh báo và thao tác nhanh. Tab “Kế hoạch ngày & nhật ký” giữ nội dung theo dõi cũ (ca, kế hoạch ngày, nhật ký).", "Bấm “Chế độ TV” để hiển thị toàn màn hình, chữ lớn, không có nút sửa – dùng cho màn hình xưởng.", "Kế hoạch: giao máy, đơn hàng, công đoạn và sản lượng; máy hỏng không giao được.", "Thực tế lấy tự động từ nhập liệu sản lượng – không cần nhập hai lần.", "Cuối ca lập biên bản bàn giao; ca sau bấm “Xác nhận đã nhận ca”."]
   }, rkh(SectionTabs, {
     sections: [
-      { key: "live", label: "Theo dõi trực tiếp", render: live },
+      { key: "live", label: "Giám sát sản xuất", render: () => board(false) },
+      { key: "daily", label: "Kế hoạch ngày & nhật ký", render: live },
       { key: "plans", label: "Kế hoạch", render: () => rkh(RecordSection, { cfg: planCfg, rows: plans, user: currentUser, auditLog, ctx }) },
       { key: "hand", label: "Bàn giao ca", render: () => rkh(RecordSection, { cfg: handCfg, rows: hand, user: currentUser, auditLog, ctx }) }
     ]

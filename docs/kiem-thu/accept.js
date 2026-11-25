@@ -212,7 +212,8 @@ const A=async code=>await t.run('(async()=>{'+code+'})()');
    await A(`await amgFlowAddStageQty({orderId:"ORD-T8",stageKey:"keo_trung",qty:25})`);
    eq((await get('orders','ORD-T8')).stages.keo_trung.done,before+25);
  });
- if(!process.env.FAKE) require('fs').writeFileSync('/tmp/db.json',t.w.localStorage.getItem('amg_mes_offline_db_v1')||'{}');
+ await new Promise(r=>setTimeout(r,300)); // chờ hàng đợi ghi đẩy xong lên máy chủ giả lập
+ if(!process.env.FAKE) require('fs').writeFileSync('/tmp/db.json',JSON.stringify(t.w.__server?t.w.__server.root:{}));
  console.log(results.join('\n'));
  console.log(`\n${pass} pass, ${fail} fail`);
  process.exit(fail?1:0);

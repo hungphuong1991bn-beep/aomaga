@@ -52,7 +52,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
   var ROOT_URL = BASE + "/" + ROOT + ".json";
 
   /* ---------- Trạng thái kết nối + thanh thông báo ---------- */
-  var status = { state: "connecting", pending: 0, lastSync: 0, readError: "", writeError: "" };
+  var status = { state: "connecting", pending: 0, lastSync: 0, lastRemote: 0, readError: "", writeError: "" };
   var statusSubs = [];
   var ready = false, readyCbs = [];
   var bannerEl = null;
@@ -161,7 +161,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
       inflight = false;
       if (r.ok) {
         queue.shift(); saveQueue(); retryDelay = 3000;
-        setStatus({ writeError: "", lastSync: Date.now() });
+        setStatus({ writeError: "", lastSync: Date.now(), state: status.state === "offline" ? "online" : status.state }); // ghi thành công = máy chủ đang liên lạc được
         flush();
       } else if (r.status === 400) {
         console.error("RTDB từ chối một thay đổi (400) — bỏ qua:", item.w);
@@ -238,6 +238,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
   function flushDirty() {
     var cols = Object.keys(dirty); dirty = {};
     if (!cols.length) return;
+    if (ready) setStatus({ lastRemote: Date.now() }); // có thay đổi THẬT từ thiết bị khác (bản ghi của chính mình đã bị bỏ qua ở applyDoc)
     saveCacheSoon();
     cols.forEach(notify);
   }
@@ -278,13 +279,15 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
       }
     };
   }
-  window.addEventListener("online", function () { retryDelay = 3000; flush(); if (!es) connect(); });
+  window.addEventListener("online", function () { retryDelay = 3000; flush(); if (!es || es.readyState === 2) connect(); else if (es.readyState === 1) setStatus({ state: "online" }); });
   window.addEventListener("offline", function () { setStatus({ state: "offline" }); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden && !es) connect(); });
   // Đã từng đồng bộ trước đó → sau 8 giây chưa kết nối được vẫn cho dùng bản lưu trên máy (không gieo dữ liệu mẫu vì các bộ sưu tập không trống).
   setTimeout(function () { if (!ready && hadCache) markReady(); }, 8000);
   connect();
   flush();
+  // Nút "Đồng bộ" ở thanh trên: nối lại luồng đọc và gửi ngay hàng đợi ghi (không tải lại toàn bộ dữ liệu bằng tay)
+  window.__rtdbResync = function () { retryDelay = 3000; if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } flush(); connect(); };
 
   /* ---------- API tương thích Firestore ---------- */
   function sanitize(d) {
@@ -386,6 +389,51 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
     return base;
   }
 
+  /* ---------- Ghi CÓ ĐIỀU KIỆN trên MỘT tài liệu (v52) ----------
+     Dùng ETag của Realtime Database REST: đọc tài liệu + ETag mới nhất từ MÁY CHỦ (không tin bản trên màn hình), chạy mutator,
+     rồi PUT kèm "if-match". Nếu có người ghi xen vào, máy chủ trả 412 → đọc lại và chạy lại mutator (tối đa tries lần).
+     Nhờ đó hai thiết bị cùng hoàn thành/mở lại một đơn không thể cùng thắng. mutator(cur) được phép bất đồng bộ, được phép ném lỗi
+     để hủy; trả null/undefined = không ghi gì. Cần có mạng (ném lỗi rõ ràng nếu mất kết nối). */
+  function waitFlushed(ms) {
+    return new Promise(function (res, rej) {
+      var t0 = Date.now();
+      (function poll() {
+        if (!queue.length && !inflight) return res();
+        if (Date.now() - t0 > ms) return rej(new Error("Mạng chậm hoặc mất kết nối — các thay đổi trước đó chưa gửi xong. Hãy thử lại khi có mạng."));
+        setTimeout(poll, 40);
+      })();
+    });
+  }
+  async function casDoc(col, id, mutator, opts) {
+    opts = opts || {};
+    var path = pathOf(col, id), url = BASE + "/" + ROOT + "/" + path + ".json";
+    await waitFlushed(opts.flushMs || 8000);
+    var tries = opts.tries || 5;
+    for (var n = 0; n < tries; n++) {
+      var r;
+      try { r = await fetch(url, { headers: { "X-Firebase-ETag": "true" } }); }
+      catch (e) { throw new Error("Cần kết nối mạng để thực hiện thao tác này (không đọc được dữ liệu mới nhất từ máy chủ)."); }
+      if (!r.ok) throw new Error("Máy chủ từ chối đọc dữ liệu (" + r.status + ")");
+      var etag = r.headers && typeof r.headers.get === "function" ? r.headers.get("ETag") : null;
+      if (!etag) { var ne = new Error("Máy chủ không trả về mã phiên bản (ETag) nên không thể ghi có điều kiện."); ne.code = "no-etag"; throw ne; } // trình duyệt chỉ đọc được ETag nếu máy chủ công khai qua CORS; nơi gọi sẽ tự lùi về đường giao dịch cũ
+      var cur = decodeDoc(await r.json());
+      var next = await mutator(cur);
+      if (next === undefined || next === null) return { committed: false, doc: cur, retries: n };
+      var json = JSON.stringify(sanitize(next));
+      var w;
+      try { w = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", "if-match": etag }, body: JSON.stringify({ d: json, t: Date.now() }) }); }
+      catch (e) { throw new Error("Mất kết nối khi đang ghi — chưa có thay đổi nào được lưu. Hãy kiểm tra lại trạng thái đơn rồi thử lại."); }
+      if (w.status === 412) continue;
+      if (!w.ok) throw new Error("Máy chủ từ chối ghi (" + w.status + ")");
+      var colData = data[col] = data[col] || {};
+      colData[id] = JSON.parse(json); raws[path] = json;
+      saveCacheSoon(); notify(col);
+      setStatus({ writeError: "", lastSync: Date.now() });
+      return { committed: true, doc: colData[id], retries: n };
+    }
+    throw new Error("Dữ liệu vừa bị người khác thay đổi liên tục — hãy tải lại trang rồi thử lại.");
+  }
+
   window.__isOfflineDb = true; // = "tài khoản cục bộ, không Firebase Auth" (tên giữ nguyên để tương thích)
   window.__isRtdb = true;
   window.__db = {
@@ -399,6 +447,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
         commit: function () { if (ops.length) commitOps(ops); return Promise.resolve(); }
       };
     },
+    casDoc: casDoc,
     settings: function () {}
   };
 })();

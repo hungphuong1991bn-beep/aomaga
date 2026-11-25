@@ -43,6 +43,9 @@ function AppInner() {
     setTheme(next);
   }
   const [activeTab, setActiveTab] = useState("dashboard");
+  // Tìm kiếm toàn hệ thống / liên kết nhanh: chuyển tab + đặt "tiêu điểm" cho trang đích; nonce buộc trang đích dựng lại để đọc tiêu điểm kể cả khi đang ở đúng tab đó
+  const [navNonce, setNavNonce] = useState(0);
+  const navigateFocus = (tab, focus) => { window.__AMG_FOCUS = focus ? Object.assign({ tab }, focus) : null; setActiveTab(tab); setNavNonce(n => n + 1); setMobileNavOpen(false); };
   const [collapsed, setCollapsed] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [kioskMode, setKioskMode] = useState(false);
@@ -616,6 +619,12 @@ function AppInner() {
     onOpenMobileNav: () => setMobileNavOpen(true),
     theme: theme,
     onToggleTheme: toggleTheme,
+    onToggleSidebar: () => setCollapsed(c => !c),
+    collapsed: collapsed,
+    onNavigateFocus: navigateFocus,
+    searchOrders: data.orders,
+    searchRuns: flow.runs,
+    searchStaff: data.staff,
     orders: activeOrders,
     machines: data.machines,
     attendance: data.attendance,
@@ -629,7 +638,7 @@ function AppInner() {
     className: "mes-content-wrap"
   }, /*#__PURE__*/React.createElement("div", {
     className: "mes-page",
-    key: activeTab
+    key: activeTab + ":" + navNonce
   }, activeTab === "dashboard" && /*#__PURE__*/React.createElement(DashboardPage, {
     currentUser: currentUser,
     attendance: data.attendance,
@@ -651,6 +660,8 @@ function AppInner() {
   }), activeTab === "orders" && /*#__PURE__*/React.createElement(OrdersPage, {
     extra,
     runs: flow.runs,
+    entries: flow.entries,
+    onNavigateFocus: navigateFocus,
     machines: data.machines,
     orders: activeOrders,
     completedCount: baseOrders.length - activeOrders.length,
@@ -735,7 +746,8 @@ function AppInner() {
     onEditProductionEntry: handleEditProductionEntry,
     onDeleteProductionEntry: handleDeleteProductionEntry
   }), activeTab === "ops" && amgAllow(currentUser, "v", "dieuhanh") && /*#__PURE__*/React.createElement(OpsPage, {
-    extra, orders: data.orders, machines: data.machines, staff: data.staff, auditLog: data.auditLog, currentUser
+    extra, orders: data.orders, machines: data.machines, staff: data.staff, auditLog: data.auditLog, currentUser,
+    runs: flow.runs, entries: flow.entries, onNavigateFocus: navigateFocus
   }), activeTab === "warehouse" && amgAllow(currentUser, "v", "kho") && /*#__PURE__*/React.createElement(WarehousePage, {
     extra, orders: data.orders, auditLog: data.auditLog, currentUser
   }), activeTab === "inspect" && amgAllow(currentUser, "v", "qc") && /*#__PURE__*/React.createElement(InspectPage, {

@@ -2,7 +2,7 @@
    Không đổi quy tắc tính hiện có: tiến độ/công đoạn lấy từ normalizeOrderStages, getApplicableStages, orderProgress.
    BOM & giao hàng được lưu ngay trên đơn (order.bom, order.deliveries) và đi qua onUpdate cũ → có version/nhật ký như mọi sửa đơn. */
 
-function OrderDetailModal({ order, auditLog, extra, runs, isAdmin: isAdminProp, onClose, onUpdate, onEdit, readOnly: readOnlyProp }) {
+function OrderDetailModal({ order, auditLog, extra, runs, entries, currentUser, isAdmin: isAdminProp, onClose, onUpdate, onEdit, onDelete, onNavigateFocus, readOnly: readOnlyProp }) {
   // Đơn đã hoàn thành: CHỈ XEM (BOM, định mức, giao hàng không sửa/xóa được). Muốn sửa phải mở lại đơn.
   const readOnly = !!readOnlyProp || order.status === "completed";
   const isAdmin = isAdminProp && !readOnly;
@@ -46,25 +46,47 @@ function OrderDetailModal({ order, auditLog, extra, runs, isAdmin: isAdminProp, 
   ];
 
   const orderRuns = amgSortRunsDesc(amgRunsOfOrder(runs || [], order.id));
+  const A = amgBuildOrderArchive(order, runs || [], entries || [], extra, auditLog, Date.now());
+  const openRuns = orderRuns.filter(amgIsOpenRun);
+  const curPlan = amgIsFlowOrder(order) && order.status !== "completed" ? amgPlanBucket(order, runs || []) : null;
+  const curStage = curPlan && curPlan.stageKey ? amgStageLabel(curPlan.stageKey) : "—";
+  const runMachines = [...new Set(openRuns.map(r => r.machineId))];
+  const canPlan = !!currentUser && amgFlowCan(currentUser, "plan") && order.status !== "completed";
+  const issuedByMat = {}; A.issued.forEach(i => { const k = amgSearchNorm(i.material); issuedByMat[k] = (issuedByMat[k] || 0) + (Number(i.qty) || 0); });
+  const goPlan = focus => { if (onNavigateFocus) { onClose(); onNavigateFocus("machines", Object.assign({ screen: "plan" }, focus)); } };
+  const actionBar = !readOnly && order.status !== "completed" && rkh("div", { className: "mes-no-print", "data-testid": "order-actions", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+    isAdmin && onEdit && rkh(Button, { onClick: onEdit }, "CHỈNH SỬA ĐƠN"),
+    isAdmin && onDelete && rkh(Button, { variant: "danger", onClick: () => onDelete(order) }, "XÓA ĐƠN"),
+    canPlan && onNavigateFocus && rkh(Button, { variant: "primary", onClick: () => goPlan({ q: order.id }) }, "LẬP KẾ HOẠCH SẢN XUẤT"),
+    canPlan && onNavigateFocus && rkh(Button, { variant: "primary", disabled: !amgIsFlowOrder(order), title: amgIsFlowOrder(order) ? "" : "Đơn chưa xác nhận quy trình — sửa đơn để xác nhận trước khi phân máy", onClick: () => goPlan({ assign: { orderId: order.id, stageKey: curPlan && curPlan.stageKey } }) }, "PHÂN MÁY"),
+    rkh(Button, { variant: "ghost", onClick: () => setTab("edits") }, "XEM LỊCH SỬ"));
   const tabs = [["info", "Thông tin chung"], ["machines", "Máy & lệnh sản xuất"], ["bom", "BOM và định mức"], ["stages", "Tiến độ công đoạn"], ["prod", "Lịch sử sản xuất"], ["quality", "Lịch sử chất lượng"], ["edits", "Lịch sử chỉnh sửa"], ["ship", "Lịch sử giao hàng"]];
 
   return rkh(Modal, { title: `${order.customer || ""} · ${order.spec || ""}`, onClose, width: 760 },
+    actionBar,
     rkh(DetailTabs, { tabs: tabs.map(([key, label]) => ({ key, label })), active: tab, onChange: setTab }),
 
     tab === "info" && rkh("div", null,
       row("Mã đơn", order.id), row("Khách hàng", order.customer || "—"), row("Ngày xuống đơn", amgFmtDate(order.orderDate)),
       row("Ngày giao hàng", order.deliveryDate ? amgFmtDate(order.deliveryDate) : "Chưa nhập"), row("Quy cách", order.spec || "—"), row("Mã vật liệu", order.materialCode || "—"),
       row("Mức ưu tiên", amgPriorityMeta(order.priority).label), row("Quy trình", applicable.map(k => amgStageLabel(k)).join(" → ") + (amgIsFlowOrder(order) ? "" : " (suy từ quy cách)")), row("Ghi chú", order.note || "—"), order.status === "completed" && row("Hoàn thành lúc", amgFmtDateTime(order.completedAt) + (order.completedBy ? " · " + order.completedBy : "")), row("Loại dây", order.wireFinish === "mềm" ? "Dây ủ mềm" : order.wireFinish === "cứng" ? "Dây cứng" : "Theo quy cách"),
-      row("Số lượng đặt", qty !== null ? fmt(qty) + " " + unit : "—"), row("Tồn kho", fmt(order.inventory) + " " + unit), row("Thành phẩm", fmt(prog.completedQty) + " " + unit),
+      row("Số lượng đặt", qty !== null ? fmt(qty) + " " + unit : "—"), row("Đơn vị tính", unit), row("Tồn kho", fmt(order.inventory) + " " + unit), row("Số lượng đã sản xuất (thành phẩm)", fmt(prog.completedQty) + " " + unit), row("Số lượng còn lại", qty !== null ? fmt(Math.max(0, qty - prog.completedQty)) + " " + unit : "—"), row("Công đoạn hiện tại", curStage), row("Máy đang sản xuất", runMachines.join(", ") || "—"),
       row("Tiến độ", prog.pct === null ? "—" : prog.pct.toFixed(1) + "%"), row("Trạng thái", rkh(Badge, { color: prog.statusColor }, prog.statusLabel)),
-      isAdmin && rkh("div", { className: "mes-no-print", style: { marginTop: 12 } }, rkh(Button, { onClick: onEdit }, "Chỉnh sửa / xóa đơn"))),
+      null),
 
-    tab === "machines" && (orderRuns.length === 0 ? empty("Đơn chưa được phân máy. Phân máy ở tab Kế hoạch sản xuất.") : rkh("div", { className: "mes-scroll-x" }, rkh("table", { className: "mes-table" }, rkh("thead", null, rkh("tr", null, ["Máy", "Công đoạn", "Kế hoạch", "Đã chạy", "Người vận hành", "Trạng thái"].map(h => rkh("th", { key: h }, h)))), rkh("tbody", null, orderRuns.map(r => rkh("tr", { key: r.id }, rkh("td", { className: "mes-mono", style: { fontWeight: 700 } }, r.machineId), rkh("td", null, amgStageLabel(r.stageKey)), rkh("td", { className: "mes-mono" }, fmt(r.plannedQuantity)), rkh("td", { className: "mes-mono" }, fmt(r.producedQuantity || 0)), rkh("td", null, `${r.operator || "—"} · ${r.shift || "—"}`), rkh("td", null, amgRunStatusMeta(r.productionStatus).label))))))), tab === "bom" && rkh("div", null,
+    tab === "machines" && (A.runRows.length === 0 ? empty("Đơn chưa được phân máy. Dùng nút PHÂN MÁY ở trên hoặc mở tab Kế hoạch sản xuất.") : rkh("div", { className: "mes-scroll-x" }, rkh("table", { className: "mes-table" },
+      rkh("thead", null, rkh("tr", null, ["Máy", "Công đoạn", "Người vận hành", "Ca", "Bắt đầu", "Kết thúc", "Chạy thực tế", "Tạm dừng", "SL kế hoạch", "SL thực tế", "Trạng thái lệnh"].map(h => rkh("th", { key: h }, h)))),
+      rkh("tbody", null, A.runRows.map(r => rkh("tr", { key: r.id },
+        rkh("td", { className: "mes-mono" }, r.machine), rkh("td", null, r.stage), rkh("td", null, r.operator || "—"), rkh("td", null, r.shift || "—"),
+        rkh("td", null, r.start ? amgFmtDateTime(r.start) : "—"), rkh("td", null, r.end ? amgFmtDateTime(r.end) : "—"),
+        rkh("td", { className: "mes-mono" }, amgHm(r.netMs)), rkh("td", { className: "mes-mono" }, amgHm(r.pausedMs)),
+        rkh("td", { className: "mes-mono" }, fmt(r.planned) + " " + r.unit), rkh("td", { className: "mes-mono", style: { fontWeight: 700 } }, fmt(r.produced) + " " + r.unit), rkh("td", null, r.status))))))),
+    tab === "bom" && rkh("div", null,
       readOnly && rkh("div", { style: { fontSize: FZ(13), padding: "8px 10px", borderRadius: 8, marginBottom: 8, background: COLORS.bgInset, border: `1px solid ${COLORS.border}`, color: COLORS.textDim } }, "🔒 Đơn đã hoàn thành — BOM và định mức được lưu để tra cứu (chỉ đọc). Mở lại đơn nếu cần chỉnh sửa."),
       rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim, marginBottom: 8 } }, "Công đoạn áp dụng (theo quy tắc quy cách hiện hành): ", applicable.map(k => (STAGE_MAP[k] || {}).label || k).join(" → ") || "—"),
       bom.length === 0 ? empty("Chưa khai báo định mức vật tư cho đơn này.") : rkh("div", { className: "mes-scroll-x" }, rkh("table", { className: "mes-table" },
-        rkh("thead", null, rkh("tr", null, ["Vật tư", "Định mức", "Cần cho đơn", "Ghi chú", ""].map(h => rkh("th", { key: h }, h)))),
-        rkh("tbody", null, bom.map(l => rkh("tr", { key: l.id }, rkh("td", null, l.material), rkh("td", null, `${fmt(l.norm)} ${l.unit}`), rkh("td", null, qty !== null ? `${fmt(l.norm * qty)} ${l.unit}` : "—"), rkh("td", null, l.note || ""),
+        rkh("thead", null, rkh("tr", null, ["Vật tư", "Định mức", "Cần cho đơn", "Đã xuất kho", "Còn thiếu", "Ghi chú", ""].map(h => rkh("th", { key: h }, h)))),
+        rkh("tbody", null, bom.map(l => rkh("tr", { key: l.id }, rkh("td", null, l.material), rkh("td", null, `${fmt(l.norm)} ${l.unit}`), rkh("td", null, qty !== null ? `${fmt(l.norm * qty)} ${l.unit}` : "—"), rkh("td", null, `${fmt(issuedByMat[amgSearchNorm(l.material)] || 0)} ${l.unit}`), rkh("td", { style: { fontWeight: 700, color: qty !== null && l.norm * qty > (issuedByMat[amgSearchNorm(l.material)] || 0) + 1e-9 ? COLORS.red : COLORS.green } }, qty !== null ? `${fmt(Math.max(0, l.norm * qty - (issuedByMat[amgSearchNorm(l.material)] || 0)))} ${l.unit}` : "—"), rkh("td", null, l.note || ""),
           rkh("td", { className: "mes-no-print" }, isAdmin && rkh("span", { style: { display: "flex", gap: 6 } },
             rkh(Button, { variant: "ghost", onClick: () => setBomForm({ line: l }) }, "Sửa"),
             rkh(Button, { variant: "danger", onClick: async () => { if (await askConfirm(`Xóa dòng BOM “${l.material}”?`, { danger: true, confirmLabel: "Xóa" })) saveLines({ bom: bom.filter(x => x.id !== l.id) }); } }, "Xóa")))))))),
@@ -73,17 +95,24 @@ function OrderDetailModal({ order, auditLog, extra, runs, isAdmin: isAdminProp, 
         rkh("div", { style: { fontWeight: 700, fontSize: FZ(13), marginBottom: 4 } }, "Đã xuất kho cho đơn này"),
         Object.keys(issuedByLot).map(id => { const l = lots.find(x => x.id === id) || {}; return row(`${l.lotNo || id} – ${l.material || ""}`, fmt(issuedByLot[id]) + " " + (l.unit || "")); }))),
 
-    tab === "stages" && rkh("div", null, STAGES.map(s => {
-      const st = o.stages[s.key] || { done: 0, remain: 0 }; const on = applicable.includes(s.key);
-      const pc = qty ? Math.min(100, Math.round(st.done / qty * 100)) : 0;
-      return rkh("div", { key: s.key, style: { marginBottom: 12, opacity: on ? 1 : 0.5 } },
-        rkh("div", { style: { display: "flex", justifyContent: "space-between", fontSize: FZ(13) } }, rkh("b", null, s.label + (on ? "" : " (không áp dụng)")), rkh("span", null, `Đã làm ${fmt(st.done)} · Còn ${fmt(st.remain)}`)),
-        rkh("div", { style: { height: 7, background: COLORS.bgInset, borderRadius: 4, marginTop: 4 } }, rkh("div", { style: { width: pc + "%", height: "100%", background: pc >= 100 ? COLORS.green : COLORS.amber, borderRadius: 4 } })));
-    })),
+    tab === "stages" && rkh("div", null,
+      rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim, marginBottom: 10 } }, "Quy trình: ", applicable.map(amgStageLabel).join(" → ") || "—"),
+      applicable.map((k, i) => {
+        const st = o.stages[k] || { done: 0, remain: 0 }, done = amgStageComplete(order, k), live = openRuns.some(r => r.stageKey === k) || st.done > 0;
+        const state = done ? { l: "Hoàn thành", c: COLORS.green } : live ? { l: "Đang thực hiện", c: COLORS.amber } : { l: "Chưa thực hiện", c: COLORS.textFaint };
+        const pc = qty ? Math.min(100, Math.round(st.done / qty * 100)) : 0, miss = qty !== null ? Math.max(0, qty - st.done) : null;
+        return rkh("div", { key: k, "data-stage": k, style: { marginBottom: 12 } },
+          rkh("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: FZ(13) } }, rkh("b", null, `${i + 1}. ${amgStageLabel(k)}`), rkh("span", { style: { color: state.c, fontWeight: 800 } }, state.l), rkh("span", null, `Sản lượng ${fmt(st.done)} ${unit}${miss !== null ? ` · còn thiếu ${fmt(miss)}` : ""}`)),
+          rkh("div", { style: { height: 7, background: COLORS.bgInset, borderRadius: 4, marginTop: 4 } }, rkh("div", { style: { width: pc + "%", height: "100%", background: done || pc >= 100 ? COLORS.green : COLORS.amber, borderRadius: 4 } })));
+      })),
 
-    tab === "prod" && (prodEntries.length === 0 ? empty("Chưa có lượt nhập sản lượng cho đơn này.") : rkh("div", null,
-      rkh("div", { className: "mes-no-print", style: { marginBottom: 8 } }, rkh(Button, { variant: "ghost", onClick: () => amgExportExcel("lich-su-san-xuat-" + order.id, [{ key: "date", label: "Ngày" }, { key: "st", label: "Công đoạn", export: a => (STAGE_MAP[a.stageKey] || {}).label || a.stageKey }, { key: "qty", label: "Số lượng" }, { key: "user", label: "Người nhập" }], prodEntries, "Sản xuất") }, "Xuất Excel")),
-      prodEntries.map(a => row(`${amgFmtDate(a.date)} · ${(STAGE_MAP[a.stageKey] || {}).label || a.stageKey || ""}`, `${fmt(a.qty)} — ${a.user || ""}`)))),
+    tab === "prod" && ((() => { const ents = A.entries.filter(e => !e.voided).slice().reverse();
+      if (ents.length === 0 && prodEntries.length === 0) return empty("Chưa có lượt ghi nhận sản lượng cho đơn này.");
+      if (ents.length === 0) return rkh("div", null, prodEntries.map(a => row(`${amgFmtDate(a.date)} · ${(STAGE_MAP[a.stageKey] || {}).label || a.stageKey || ""}`, `${fmt(a.qty)} — ${a.user || ""}`)));
+      return rkh("div", { className: "mes-scroll-x" }, rkh("table", { className: "mes-table" },
+        rkh("thead", null, rkh("tr", null, ["Thời gian ghi nhận", "Công đoạn", "Máy", "Sản lượng", "Người thực hiện", "Ghi chú"].map(h => rkh("th", { key: h }, h)))),
+        rkh("tbody", null, ents.map(e => rkh("tr", { key: e.id || e.clientKey || e.enteredAt }, rkh("td", null, amgFmtDateTime(e.enteredAt)), rkh("td", null, amgStageLabel(e.stageKey)), rkh("td", { className: "mes-mono" }, e.machineId || "—"), rkh("td", { className: "mes-mono", style: { fontWeight: 700 } }, `${fmt(e.qty)} ${e.unit || unit}`), rkh("td", null, e.enteredBy || e.user || "—"), rkh("td", null, e.note || ""))))));
+    })()),
 
     tab === "quality" && (() => {
       const mi = insp.filter(i => i.orderId === order.id), mn = ncr.filter(n => n.orderId === order.id);

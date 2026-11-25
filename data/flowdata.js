@@ -373,10 +373,116 @@ async function amgFlowRelockMachine(machineId, candidateRunIds) {
   });
 }
 
-/* ---------- Xác nhận / mở lại đơn hoàn thành ----------
+/* ---------- HOÀN THÀNH ĐƠN / MỞ LẠI ĐƠN (v52) ----------
+   Một thao tác duy nhất: người có quyền bấm HOÀN THÀNH ĐƠN ở Kế hoạch/Điều hành → kiểm tra điều kiện → đơn chuyển status = "completed"
+   NGAY, không có trạng thái trung gian "chờ xác nhận", không có hộp xác nhận lần hai.
+   Chỉ MỘT tài liệu đơn được đổi (orders/{id}) bằng ghi có điều kiện (casDoc, so ETag) nên:
+     - bấm nhiều lần / hai thiết bị cùng bấm: chỉ một lần thắng, lần còn lại nhận { duplicate: true } và KHÔNG ghi đè completedAt/completedBy;
+     - dữ liệu đọc lại từ máy chủ ngay trước khi ghi, không tin màn hình.
+   KHÔNG xóa đơn, lệnh, sản lượng, BOM, lịch sử. Kết thúc lệnh máy ≠ hoàn thành công đoạn ≠ hoàn thành đơn: không bao giờ tự gọi hàm này. */
+function amgOrderCompletionRuns(allRuns, orderId) { return (allRuns || []).map(amgNormalizeRun).filter(r => r.orderId === orderId); }
+async function amgFlowCompleteOrderCas({ orderId, reason, knownRunIds, source }) {
+  amgFlowRequire("manager", "hoàn thành đơn hàng");
+  const dbx = window.__db;
+  if (!dbx || typeof dbx.casDoc !== "function") return amgFlowCompleteOrderTx({ orderId, reason, knownRunIds });
+  const user = window.__AMG_USER;
+  const why = String(reason || "").trim();
+  return amgFlowSerial(async () => {
+    const snapRuns = await dbx.collection(AMG_FLOW_COLS.runs).get();
+    const allRuns = snapRuns.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    let outcome = null;
+    const res = await dbx.casDoc(FS.orders, orderId, async cur => {
+      outcome = null;
+      if (!cur) throw new Error("Không tìm thấy đơn hàng");
+      const order = Object.assign({ id: orderId }, cur);
+      if (order.status === "completed") { outcome = { duplicate: true, order }; return null; }
+      const mine = amgOrderCompletionRuns(allRuns, order.id);
+      const live = mine.filter(r => amgRunIsLive(r));
+      (order.openRunIds || []).concat(knownRunIds || []).forEach(id => { if (id && !mine.some(r => r.id === id)) { const r = allRuns.find(x => x.id === id); if (r && r.orderId === order.id && amgRunIsLive(amgNormalizeRun(r)) && !live.some(x => x.id === id)) live.push(amgNormalizeRun(r)); } });
+      if (live.length) throw new Error(`Đơn còn lệnh sản xuất đang mở trên máy ${live.map(r => r.machineId).join(", ")}. Kết thúc lệnh trước khi hoàn thành đơn`);
+      const rd = amgOrderReadiness(order);
+      const legacy = !amgIsFlowOrder(order);
+      if (!legacy && !rd.allStages) throw new Error("Chưa hoàn thành các công đoạn bắt buộc: " + rd.missing.map(amgStageLabel).join(", "));
+      const short = !rd.qtyMet;
+      if (short && why.length < 5) throw new Error(`Thành phẩm (${fmtNum(rd.finished)}) chưa đủ số lượng đặt (${fmtNum(rd.qty)}). Ghi lý do (ít nhất 5 ký tự) để hoàn thành thiếu số lượng`);
+      const now = amgNowIso(), who = amgWho();
+      const machinesUsed = []; mine.forEach(r => { if (r.machineId && machinesUsed.indexOf(r.machineId) < 0) machinesUsed.push(r.machineId); });
+      const summary = { finished: rd.finished, qty: rd.qty, unit: amgOrderUnit(order), short, route: rd.route, machines: machinesUsed, runCount: mine.length };
+      const history = (order.statusHistory || []).concat([{ at: now, by: who, action: "complete", mode: "manual", source: source || "plan", reason: why, short, finished: rd.finished, qty: rd.qty }]);
+      const patch = amgFlowBump(order, { status: "completed", completedAt: now, completedBy: who, completionMode: "manual", completionSource: source || "plan", completionNote: why, completedShort: short, completionSummary: summary, openRunIds: [], statusHistory: history });
+      const next = Object.assign({}, cur, patch);
+      const chk = amgCheckWrite(user, FS.orders, "set", order.id, next);
+      if (!chk.ok) throw new Error("Bạn không có quyền thực hiện thao tác này: " + chk.reason);
+      outcome = { order: next, short, rd, summary };
+      return next;
+    });
+    if (outcome && outcome.duplicate) return { duplicate: true, order: outcome.order };
+    if (!res.committed || !outcome) throw new Error("Không hoàn thành được đơn — hãy tải lại rồi thử lại");
+    // Nhật ký (ghi sau khi đơn đã chuyển trạng thái; mất nhật ký không làm sai trạng thái đơn)
+    const o = outcome.order, rd = outcome.rd;
+    const pend = []; const ctx = { set: (c, i, d) => pend.push([c, i, d]) };
+    amgFlowAudit(ctx, "order_complete", `Hoàn thành đơn ${o.id} (${o.customer || ""} / ${o.spec || ""}) — thành phẩm ${fmtNum(rd.finished)}/${fmtNum(rd.qty)} ${amgOrderUnit(o)}${outcome.short ? " — THIẾU SỐ LƯỢNG: " + (o.completionNote || "") : ""}`, o.id, { mode: "manual", source: source || "plan" });
+    const b = dbx.batch(); pend.forEach(([c, i, d]) => b.set(dbx.collection(c).doc(i), d)); await b.commit();
+    return { order: o, retries: res.retries };
+  });
+}
+// Lớp bọc: ưu tiên ghi có điều kiện (ETag). Nếu máy chủ/trình duyệt không cung cấp ETag (CORS không công khai header) thì tự lùi về
+// đường giao dịch cũ MỘT lần và nhớ lại — nghiệp vụ vẫn chạy, chỉ yếu hơn về chống ghi đồng thời giữa các thiết bị (xem tài liệu).
+async function amgCasOrFallback(cas, fallback) {
+  if (window.__amgNoCas) return fallback();
+  try { return await cas(); }
+  catch (e) { if (e && e.code === "no-etag") { window.__amgNoCas = true; try { console.warn("[AMG] Không có ETag — dùng đường giao dịch dự phòng"); } catch (x) {} return fallback(); } throw e; }
+}
+function amgFlowCompleteOrder(p) { return amgCasOrFallback(() => amgFlowCompleteOrderCas(p), () => amgFlowCompleteOrderTx({ orderId: p.orderId, reason: p.reason, knownRunIds: p.knownRunIds })); }
+function amgFlowReopenOrder(p) { return amgCasOrFallback(() => amgFlowReopenOrderCas(p), () => amgFlowReopenOrderTx({ orderId: p.orderId, reason: p.reason })); }
+// Hoàn thành đơn MỘT BƯỚC dùng chung cho Kế hoạch sản xuất và Điều hành sản xuất (giao diện chỉ việc hiển thị kết quả):
+//   blocked → còn lệnh mở / thiếu công đoạn (kèm lý do) · need_reason → thiếu số lượng, cần ghi lý do · done / duplicate → đã chuyển sang Đơn hàng hoàn thành.
+async function amgCompleteOrderOneStep(order, runs, opts) {
+  const cs = amgOrderCompletionState(order, runs);
+  if (cs.blockers.length) return { status: "blocked", blockers: cs.blockers };
+  if (cs.short) return { status: "need_reason", cs };
+  const r = await amgFlowCompleteOrder({ orderId: order.id, knownRunIds: cs.open.map(x => x.id), source: (opts && opts.source) || "plan" });
+  return { status: r.duplicate ? "duplicate" : "done", result: r };
+}
+async function amgFlowReopenOrderCas({ orderId, reason }) {
+  amgFlowRequire("manager", "mở lại đơn hàng");
+  const why = String(reason || "").trim();
+  if (why.length < 5) throw new Error("Bắt buộc ghi lý do mở lại đơn (tối thiểu 5 ký tự)");
+  const dbx = window.__db;
+  if (!dbx || typeof dbx.casDoc !== "function") return amgFlowReopenOrderTx({ orderId, reason });
+  const user = window.__AMG_USER;
+  return amgFlowSerial(async () => {
+    let outcome = null;
+    const res = await dbx.casDoc(FS.orders, orderId, async cur => {
+      if (!cur) throw new Error("Không tìm thấy đơn hàng");
+      const order = Object.assign({ id: orderId }, cur);
+      if (order.status !== "completed") throw new Error("Đơn này chưa ở trạng thái hoàn thành (có thể đã được người khác mở lại)");
+      const now = amgNowIso();
+      const route = amgOrderRoute(order);
+      const last = route[route.length - 1];
+      const sc = Object.assign({}, order.stageComplete || {});
+      if (last) delete sc[last];
+      // BOM, định mức, lệnh, sản lượng KHÔNG bị đụng tới: đơn quay lại các danh sách đang hoạt động cùng toàn bộ dữ liệu cũ
+      const history = (order.statusHistory || []).concat([{ at: now, by: amgWho(), action: "reopen", reason: why, completedAt: order.completedAt || null, completedBy: order.completedBy || null, completionMode: order.completionMode || null, completionNote: order.completionNote || "" }]);
+      const patch = amgFlowBump(order, { status: "reopened", lastCompletedAt: order.completedAt || null, lastCompletedBy: order.completedBy || null, lastCompletionSummary: order.completionSummary || null, completedAt: null, completedBy: null, completionMode: null, completionSource: null, completionNote: "", completedShort: false, completionSummary: null, stageComplete: sc, statusHistory: history });
+      const next = Object.assign({}, cur, patch);
+      const chk = amgCheckWrite(user, FS.orders, "set", order.id, next);
+      if (!chk.ok) throw new Error("Bạn không có quyền thực hiện thao tác này: " + chk.reason);
+      outcome = next;
+      return next;
+    });
+    const o = outcome;
+    const pend = []; const ctx = { set: (c, i, d) => pend.push([c, i, d]) };
+    amgFlowAudit(ctx, "order_reopen", `Mở lại đơn ${o.id} (${o.customer || ""} / ${o.spec || ""}). Lý do: ${why}`, o.id, { reason: why });
+    const b = dbx.batch(); pend.forEach(([c, i, d]) => b.set(dbx.collection(c).doc(i), d)); await b.commit();
+    return { order: o, retries: res.retries };
+  });
+}
+
+/* ---------- (Dự phòng) bản giao dịch nhiều tài liệu — chỉ dùng khi lớp dữ liệu KHÔNG có casDoc ----------
    Hoàn thành đơn chỉ đổi order.status (+ metadata) trong MỘT giao dịch trên đúng một tài liệu đơn. KHÔNG xóa đơn, lệnh, sản lượng, BOM.
    Các tab đang hoạt động lọc theo status; tab Đơn hàng hoàn thành đọc cùng collection orders → không có bản sao để trùng lặp. */
-async function amgFlowCompleteOrder({ orderId, reason, knownRunIds }) {
+async function amgFlowCompleteOrderTx({ orderId, reason, knownRunIds }) {
   amgFlowRequire("manager", "xác nhận hoàn thành đơn");
   return amgFlowTx(async ctx => {
     const order = await ctx.get(FS.orders, orderId);
@@ -402,7 +508,7 @@ async function amgFlowCompleteOrder({ orderId, reason, knownRunIds }) {
     return { order };
   });
 }
-async function amgFlowReopenOrder({ orderId, reason }) {
+async function amgFlowReopenOrderTx({ orderId, reason }) {
   amgFlowRequire("manager", "mở lại đơn hàng");
   const why = String(reason || "").trim();
   if (why.length < 5) throw new Error("Bắt buộc ghi lý do mở lại đơn (tối thiểu 5 ký tự)");

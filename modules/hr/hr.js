@@ -1136,7 +1136,7 @@ function StaffPage({
   } = useDialog();
   const [modal, setModal] = useState(null);
   const [showImport, setShowImport] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => { const f = amgTakeFocus("staff"); return f && f.q ? f.q : ""; });
   const [activeTab, setActiveTab] = useState("list");
   const grouped = TEAMS.map(team => ({
     team,
