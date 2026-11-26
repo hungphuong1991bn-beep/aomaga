@@ -429,6 +429,7 @@ function amgRunTiming(run, nowMs, order) {
   const end = Number.isNaN(e) ? now : e;
   t.elapsedMs = Math.max(0, end - s);
   (run.pauses || []).forEach(p => {
+    if (p.cancelled) return; // v55: lần dừng đã hủy không tính vào thời gian dừng
     const a = amgMs(p.at);
     if (Number.isNaN(a)) return;
     const r = amgMs(p.resumedAt);

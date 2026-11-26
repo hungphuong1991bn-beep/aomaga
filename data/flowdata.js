@@ -190,6 +190,9 @@ async function amgFlowPause(runId, reason) {
     if (run.productionStatus !== "running") throw new Error("Chỉ tạm dừng được lệnh đang chạy");
     const pauses = (run.pauses || []).concat([{ at: amgNowIso(), reason: why, by: amgWho(), resumedAt: null }]);
     ctx.set(AMG_FLOW_COLS.runs, runId, { productionStatus: "paused", pauses, version: (run.version || 0) + 1 }, true);
+    // v55: sổ lịch sử dừng máy — ghi trong CÙNG giao dịch; mã sự kiện xác định theo lệnh + số thứ tự nên bấm lại không tạo trùng
+    const ordP = run.orderId ? await ctx.get(FS.orders, run.orderId) : null;
+    await amgDtLedgerWrite(ctx, Object.assign({}, run, { pauses }), ordP, pauses.length - 1, "create", null, amgDtPauseView(pauses[pauses.length - 1]));
     amgFlowAudit(ctx, "run_pause", `Tạm dừng lệnh ${runId} (máy ${run.machineId}): ${why}`, run.orderId, { machineId: run.machineId, stageKey: run.stageKey, runId, fromStatus: "running", toStatus: "paused" });
     return { run };
   });
@@ -203,8 +206,13 @@ async function amgFlowResume(runId) {
     if (run.productionStatus !== "paused") throw new Error("Chỉ tiếp tục được lệnh đang tạm dừng");
     const machine = await ctx.get(FS.machines, run.machineId);
     if (machine && (machine.status === "broken" || machine.status === "maintenance")) throw new Error(`Máy ${machine.id} đang ${machine.status === "broken" ? "hỏng" : "bảo trì"} — chưa thể tiếp tục`);
-    const pauses = (run.pauses || []).map((x, i, a) => (i === a.length - 1 && !x.resumedAt ? Object.assign({}, x, { resumedAt: amgNowIso() }) : x));
+    const pauses = (run.pauses || []).map((x, i, a) => (i === a.length - 1 && !x.resumedAt ? Object.assign({}, x, { resumedAt: amgNowIso(), resumedBy: amgWho() }) : x));
     ctx.set(AMG_FLOW_COLS.runs, runId, { productionStatus: "running", pauses, version: (run.version || 0) + 1 }, true);
+    const li = pauses.length - 1;
+    if (li >= 0 && (run.pauses || [])[li] && !(run.pauses[li].resumedAt)) {
+      const ordR = run.orderId ? await ctx.get(FS.orders, run.orderId) : null;
+      await amgDtLedgerWrite(ctx, Object.assign({}, run, { pauses }), ordR, li, "resume", amgDtPauseView(run.pauses[li]), amgDtPauseView(pauses[li]));
+    }
     amgFlowAudit(ctx, "run_resume", `Tiếp tục chạy lệnh ${runId} (máy ${run.machineId})`, run.orderId, { machineId: run.machineId, stageKey: run.stageKey, runId, fromStatus: "paused", toStatus: "running" });
     return { run };
   });
@@ -305,7 +313,10 @@ async function amgFlowFinishRun(p) {
     }
     const now = amgNowIso(), who = amgWho();
     // Đóng lần tạm dừng đang mở (nếu kết thúc khi đang tạm dừng) để thời gian tạm dừng/thực tế luôn chính xác
-    const pauses = (run.pauses || []).map(x => (x.resumedAt ? x : Object.assign({}, x, { resumedAt: now, closedByFinish: true })));
+    const pauses = (run.pauses || []).map(x => (x.resumedAt ? x : Object.assign({}, x, { resumedAt: now, closedByFinish: true, resumedBy: who })));
+    for (let i = 0; i < pauses.length; i++) {
+      if (!(run.pauses[i] && run.pauses[i].resumedAt)) await amgDtLedgerWrite(ctx, Object.assign({}, run, { pauses }), order, i, "close", amgDtPauseView(run.pauses[i]), amgDtPauseView(pauses[i]), { note: "Đóng khi kết thúc lệnh" });
+    }
     const tm = amgRunTiming(Object.assign({}, run, { pauses, endedAt: now, productionStatus: "completed" }), Date.parse(now), order);
     const patch = {
       productionStatus: "completed", endedAt: now, endedBy: who, closeNote: p.note || "", version: (run.version || 0) + 1, pauses,
@@ -630,6 +641,12 @@ async function amgFlowForceDeleteOrder({ orderId, reason, allRuns }) {
       const keep = amgSortOpenRuns(live)[0] || null;
       ctx.set(FS.machines, mid, { activeRunId: keep ? keep.id : null }, true);
       released.push(mid);
+    }
+    // v55: lưu lại lịch sử dừng máy của các lệnh bị xóa (đánh dấu "nguồn đã xóa") để vẫn truy xuất được
+    for (const r of runs) {
+      for (let i = 0; i < (r.pauses || []).length; i++) {
+        await amgDtLedgerWrite(ctx, r, order, i, "removed", amgDtPauseView(r.pauses[i]), null, { note: "Đơn bị Admin xóa: " + why, fields: { cancelReason: "Đơn bị xóa: " + why, cancelledAt: amgNowIso(), cancelledBy: amgWho() } });
+      }
     }
     runs.forEach(r => ctx.del(AMG_FLOW_COLS.runs, r.id));
     entries.forEach(e => ctx.del(AMG_FLOW_COLS.entries, e.id));

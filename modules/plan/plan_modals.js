@@ -213,7 +213,8 @@ function StartConfirmModal({ run, orders, onClose, onDone }) {
 }
 
 /* ---------- Chi tiết lệnh: thời gian, sản lượng, lịch sử ghi, tạm dừng ---------- */
-function RunDetailModal({ run, orders, entries, onClose }) {
+function RunDetailModal({ run, orders, entries, can, onClose }) {
+  const [pauseDlg, setPauseDlg] = useState(null);
   const order = orders.find(o => o.id === run.orderId) || null;
   const active = run.productionStatus === "running" || run.productionStatus === "paused";
   const now = amgUseNow(active);
@@ -227,9 +228,17 @@ function RunDetailModal({ run, orders, entries, onClose }) {
       rkh("span", { className: "mes-mono", style: { marginLeft: "auto", fontSize: FZ(26), fontWeight: 800, color: run.productionStatus === "running" ? COLORS.green : COLORS.text } }, t.startedAt ? amgClock(t.netMs) : "—:--")),
     rkh(RunMetrics, { run, order, now }),
     rkh("div", { style: { margin: "10px 0 4px" } }, rkh(ProgressBar, { pct: t.pct, color: amgStageColor(run.stageKey) }), rkh("div", { style: { fontSize: FZ(12), color: COLORS.textDim, marginTop: 3 } }, `Đã chạy ${fmtNum(t.produced)} / ${fmtNum(t.planned)} ${u}${t.pct === null ? "" : " · " + Math.round(t.pct) + "%"} · Người vận hành ${run.operator || "—"} · ${run.shift || "—"}`)),
-    (run.pauses || []).length > 0 && rkh("div", { style: { marginTop: 10 } }, rkh("div", { style: { fontSize: FZ(12), fontWeight: 800, color: COLORS.textDim, marginBottom: 4 } }, "LỊCH SỬ TẠM DỪNG"),
-      (run.pauses || []).map((p, i) => rkh("div", { key: i, style: { fontSize: FZ(13), padding: "4px 8px", borderRadius: 6, background: COLORS.bgInset, marginBottom: 3 } },
-        `${amgFmtDateTime(p.at)} → ${p.resumedAt ? amgFmtDateTime(p.resumedAt) : "đang tạm dừng"} · ${amgHm(amgMs(p.resumedAt || (run.endedAt || now)) - amgMs(p.at))} · ${p.reason || ""}${p.by ? " · " + p.by : ""}`))),
+    (run.pauses || []).length > 0 && rkh("div", { style: { marginTop: 10 } }, rkh("div", { style: { fontSize: FZ(12), fontWeight: 800, color: COLORS.textDim, marginBottom: 4 } }, "LỊCH SỬ TẠM DỪNG · đồng bộ sang tab Theo dõi thời gian dừng máy"),
+      (run.pauses || []).map((p, i) => rkh("div", { key: i, style: { fontSize: FZ(13), padding: "6px 8px", borderRadius: 6, background: COLORS.bgInset, marginBottom: 3, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: p.cancelled ? 0.6 : 1 } },
+        rkh("span", { style: { flex: "1 1 320px", textDecoration: p.cancelled ? "line-through" : "none" } },
+          `${amgFmtDateTime(p.at)} → ${p.resumedAt ? amgFmtDateTime(p.resumedAt) : "đang tạm dừng"} · ${amgHm(amgMs(p.resumedAt || (run.endedAt || now)) - amgMs(p.at))} · ${p.reason || ""}${p.by ? " · " + p.by : ""}`),
+        rkh("span", { className: "mes-mono", style: { fontSize: FZ(11), color: COLORS.textFaint } }, amgDtEventId(run.id, i)),
+        p.cancelled && rkh(Badge, { color: COLORS.textFaint }, "Đã hủy" + (p.cancelReason ? ": " + p.cancelReason : "")),
+        !p.cancelled && p.editedBy && rkh(Badge, { color: COLORS.blue }, "Đã sửa"),
+        can && can.plan && !p.cancelled && rkh(Button, { size: "sm", variant: "ghost", onClick: () => setPauseDlg({ kind: "edit", idx: i }) }, "Sửa"),
+        can && can.plan && !p.cancelled && p.resumedAt && rkh(Button, { size: "sm", variant: "ghost", onClick: () => setPauseDlg({ kind: "cancel", idx: i }) }, "Hủy")))),
+    pauseDlg && pauseDlg.kind === "edit" && rkh(PauseEditModal, { run, idx: pauseDlg.idx, onClose: () => setPauseDlg(null) }),
+    pauseDlg && pauseDlg.kind === "cancel" && rkh(PauseCancelModal, { run, idx: pauseDlg.idx, onClose: () => setPauseDlg(null) }),
     rkh("div", { style: { marginTop: 12, fontSize: FZ(12), fontWeight: 800, color: COLORS.textDim, marginBottom: 4 } }, `LỊCH SỬ GHI SẢN LƯỢNG (${list.length} lượt · tổng ${fmtNum(sumQty)} ${u})`),
     list.length === 0 ? rkh("div", { style: { fontSize: FZ(13), color: COLORS.textFaint, padding: "6px 0" } }, "Chưa có lượt ghi sản lượng.") :
       rkh("div", { style: { overflowX: "auto" } }, rkh("table", { className: "mes-table", style: { minWidth: 620, fontSize: FZ(13) } },
@@ -409,4 +418,54 @@ function amgRunOrderInfo(run, orders) {
   if (o) return { customer: o.customer || "", spec: o.spec || "", materialCode: o.materialCode || "", quantity: o.quantity, found: true, order: o };
   const s = run.snapshot || {};
   return { customer: s.customer || "", spec: s.spec || "", materialCode: s.materialCode || "", quantity: s.orderQuantity ?? null, found: false, order: null };
+}
+
+
+/* ---------- v55: sửa / hủy một lần tạm dừng (nguồn của tab Theo dõi thời gian dừng máy) ---------- */
+function amgDtToLocalInput(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function PauseEditModal({ run, idx, onClose }) {
+  const p = (run.pauses || [])[idx] || {};
+  const [reason, setReason] = useState(p.reason || "");
+  const [start, setStart] = useState(amgDtToLocalInput(p.at));
+  const [end, setEnd] = useState(p.resumedAt ? amgDtToLocalInput(p.resumedAt) : "");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  async function save() {
+    setBusy(true); setError("");
+    try {
+      const patch = { reason };
+      const s0 = amgDtToLocalInput(p.at), e0 = p.resumedAt ? amgDtToLocalInput(p.resumedAt) : "";
+      if (start !== s0) patch.startAt = new Date(start).toISOString();       // chỉ ghi lại mốc người dùng đã đổi (giữ nguyên giây/mili giây gốc)
+      if (p.resumedAt && end !== e0) patch.endAt = new Date(end).toISOString();
+      await amgFlowEditPause(run.id, idx, patch, note);
+      onClose();
+    } catch (e) { setError(e.message || String(e)); setBusy(false); }
+  }
+  return rkh(Modal, { title: `Sửa lần dừng ${amgDtEventId(run.id, idx)} · máy ${run.machineId}`, onClose, width: 520 },
+    rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim, marginBottom: 10 } }, "Thay đổi được cập nhật ngay sang tab Theo dõi thời gian dừng máy; nội dung trước và sau khi sửa được lưu lại để truy xuất."),
+    rkh(AmgFieldBox, { label: "Nguyên nhân dừng" }, rkh("textarea", { className: "mes-input", rows: 2, value: reason, onChange: e => setReason(e.target.value) })),
+    rkh("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+      rkh(AmgFieldBox, { label: "Bắt đầu dừng" }, rkh("input", { type: "datetime-local", className: "mes-input", value: start, onChange: e => setStart(e.target.value) })),
+      rkh(AmgFieldBox, { label: p.resumedAt ? "Kết thúc dừng" : "Kết thúc dừng (đang dừng — bấm Tiếp tục để kết thúc)" }, rkh("input", { type: "datetime-local", className: "mes-input", value: end, disabled: !p.resumedAt, onChange: e => setEnd(e.target.value) }))),
+    rkh(AmgFieldBox, { label: "Lý do chỉnh sửa (bắt buộc)" }, rkh("input", { className: "mes-input", value: note, onChange: e => setNote(e.target.value), placeholder: "VD: ghi nhầm giờ, bổ sung nguyên nhân" })),
+    error && rkh("div", { style: { color: COLORS.red, fontSize: FZ(13), marginBottom: 8 } }, error),
+    rkh("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, rkh(Button, { onClick: onClose }, "Đóng"), rkh(Button, { variant: "primary", disabled: busy || note.trim().length < 3 || reason.trim().length < 3, onClick: save }, busy ? "Đang lưu…" : "Lưu thay đổi")));
+}
+function PauseCancelModal({ run, idx, onClose }) {
+  const [why, setWhy] = useState("");
+  const [busy, setBusy] = useState(false), [error, setError] = useState("");
+  async function save() {
+    setBusy(true); setError("");
+    try { await amgFlowCancelPause(run.id, idx, why); onClose(); } catch (e) { setError(e.message || String(e)); setBusy(false); }
+  }
+  return rkh(Modal, { title: `Hủy lần dừng ${amgDtEventId(run.id, idx)} · máy ${run.machineId}`, onClose, width: 480 },
+    rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim, marginBottom: 10 } }, "Lần dừng bị hủy sẽ không còn tính vào thời gian dừng và KPI, nhưng bản ghi và lý do hủy vẫn được giữ để truy xuất."),
+    rkh(AmgFieldBox, { label: "Lý do hủy (bắt buộc)" }, rkh("input", { className: "mes-input", value: why, onChange: e => setWhy(e.target.value), placeholder: "VD: bấm tạm dừng nhầm" })),
+    error && rkh("div", { style: { color: COLORS.red, fontSize: FZ(13), marginBottom: 8 } }, error),
+    rkh("div", { style: { display: "flex", gap: 10, justifyContent: "flex-end" } }, rkh(Button, { onClick: onClose }, "Đóng"), rkh(Button, { variant: "danger", disabled: busy || why.trim().length < 3, onClick: save }, busy ? "Đang lưu…" : "Hủy lần dừng")));
 }

@@ -426,6 +426,8 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     if (f.assign && amgFlowCan(currentUser, "plan")) return { kind: "assign", orderId: f.assign.orderId, stageKey: f.assign.stageKey, machineId: f.assign.machineId };
     if (f.output && amgFlowCan(currentUser, "output")) return { kind: "output", runId: f.output };
     if (f.history) return { kind: "history", machineId: f.history };
+    if (f.orderDetail) return { kind: "detail", orderId: f.orderDetail };
+    if (f.runDetail) return { kind: "rundetail", runId: f.runDetail }; // v55: truy xuất ngược từ tab Theo dõi thời gian dừng máy về lệnh/kế hoạch gốc
     return null;
   });
   const [toast, setToast] = useState(null);
@@ -476,7 +478,7 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     modal && modal.kind === "detail" && ordObj && rkh(OrderPlanDetail, { order: ordObj, runs, machines, orders, auditLog, can, openModal: setModal, onClose: close, act }),
     modal && modal.kind === "assign" && rkh(AssignModal, { order: ordObj || undefined, orders, machines, runs, staff, fixedMachine: macObj || undefined, initialStage: modal.stageKey, onClose: close, onDone: (m, newRun, askStart) => { notify(m); if (askStart && newRun) setTimeout(() => setModal({ kind: "start", runId: newRun.id }), 80); } }),
     modal && modal.kind === "start" && run && rkh(StartConfirmModal, { run, orders, onClose: close, onDone: m => notify(m) }),
-    modal && modal.kind === "rundetail" && run && rkh(RunDetailModal, { run, orders, entries, onClose: close }),
+    modal && modal.kind === "rundetail" && run && rkh(RunDetailModal, { run, orders, entries, can, onClose: close }),
     modal && modal.kind === "routing" && ordObj && rkh(OrderEditor, { mode: "edit", order: ordObj, orders, runs, machines, onSave: async ({ f, routing }) => { await onUpdateOrder(Object.assign({ id: ordObj.id }, amgOrderBaseFromEditor(f, routing, currentUser))); notify(`Đã xác nhận quy trình đơn ${ordObj.id} — đơn đã vào kế hoạch`); }, onClose: close }),
     modal && modal.kind === "output" && run && rkh(OutputModal, { run, orders, machines, entries, onClose: close, onDone: m => notify(m) }),
     modal && modal.kind === "pause" && run && rkh(PauseModal, { run, onClose: close, onDone: m => notify(m) }),

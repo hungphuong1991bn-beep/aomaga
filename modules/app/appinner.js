@@ -33,6 +33,7 @@ function AppInner() {
   const [currentUser, setCurrentUser] = useState(null);
   const extra = useExtraData(!!currentUser);
   const flow = useFlowData(!!currentUser); // v46: lệnh sản xuất (productionRuns) + lượt sản lượng (productionEntries)
+  const dtData = useDowntimeData(!!currentUser); // v55: sổ lịch sử dừng máy + ngưỡng cảnh báo (số liệu dừng máy lấy trực tiếp từ flow.runs)
   window.__AMG_USER = currentUser; // phiên hiện tại cho cổng ghi dữ liệu (core/guard.js)
   // Giao diện sáng/tối: màn hình đăng nhập luôn sáng; sau đăng nhập dùng lựa chọn đã lưu của người dùng.
   const [theme, setTheme] = useState(amgSavedTheme);
@@ -370,30 +371,6 @@ function AppInner() {
     }).catch(() => {});
     audit("machine_update", `Cập nhật máy ${id}: trạng thái → ${MACHINE_STATUS[status].label}`, id);
   }
-  async function handleAddDowntimeRecord({
-    machineId,
-    status,
-    startTime,
-    endTime,
-    reason
-  }) {
-    const machine = data.machines.find(m => m.id === machineId);
-    if (!machine) return;
-    const downtimeLog = Array.isArray(machine.downtimeLog) ? [...machine.downtimeLog] : [];
-    downtimeLog.push({
-      id: uid("DT"),
-      status,
-      statusLabel: MACHINE_STATUS[status]?.label || status,
-      startTime,
-      endTime: endTime || null,
-      reason: reason || "",
-      recordedBy: currentUser.fullName
-    });
-    await db.collection(FS.machines).doc(machineId).update({
-      downtimeLog
-    });
-    audit("machine_update", `Ghi nhận thời gian dừng máy ${machineId} (nhập tay)`, machineId);
-  }
   async function handleUpdateDowntimeRecord(machineId, recordId, patch) {
     const machine = data.machines.find(m => m.id === machineId);
     if (!machine) return;
@@ -718,13 +695,20 @@ function AppInner() {
     scrap: data.scrap,
     currentUser: currentUser,
     onForceDelete: handleForceDeleteOrders
-  }), activeTab === "downtime" && /*#__PURE__*/React.createElement(DowntimeTrackingPage, {
+  }), activeTab === "downtime" && /*#__PURE__*/React.createElement(DowntimeMesPage, {
     machines: data.machines,
+    orders: data.orders,
+    runs: flow.runs,
+    loaded: flow.loaded,
+    flowError: flow.error,
+    ledger: dtData.ledger,
+    settings: dtData.settings,
+    ledgerError: dtData.error,
     isAdmin: isAdmin,
     currentUser: currentUser,
-    onAdd: handleAddDowntimeRecord,
-    onUpdate: handleUpdateDowntimeRecord,
-    onDelete: handleDeleteDowntimeRecord
+    onNavigateFocus: navigateFocus,
+    onUpdateLegacy: handleUpdateDowntimeRecord,
+    onDeleteLegacy: handleDeleteDowntimeRecord
   }), activeTab === "qc" && /*#__PURE__*/React.createElement(QCPage, {
     scrap: data.scrap,
     isAdmin: isAdmin,
