@@ -70,6 +70,10 @@ function amgCheckWrite(user, col, op, docId, data) {
   switch (col) {
     case "users":
       return { ok: false, reason: "Chỉ quản trị viên được thay đổi tài khoản" };
+    case "downtimeEvents":
+      return op === "delete" ? { ok: false, reason: "Sổ lịch sử dừng máy không được xóa" } : { ok: true };
+    case "downtimeSettings":
+      return { ok: false, reason: "Chỉ Quản trị viên / Quản đốc được cài đặt ngưỡng cảnh báo dừng máy" };
     case "auditLog":
       return op === "set" || op === "add" ? { ok: true } : { ok: false, reason: "Chỉ quản trị viên được sửa/xóa lượt nhập" };
     case "certificates":

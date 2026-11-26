@@ -2,7 +2,7 @@
    - Mã ứng dụng (cùng nguồn): MẠNG TRƯỚC, cache dự phòng khi mất mạng → người dùng luôn nhận bản mới nhất khi có mạng.
    - Thư viện CDN (đã ghim đúng phiên bản): cache trước.
    - Bản mới KHÔNG tự thay thế giữa chừng khi đang nhập liệu: chờ người dùng bấm "Tải lại" trên thanh thông báo. */
-const V = 'mes-v54-bo-ma-don'; // đổi tên khi có bản mới để trình duyệt/TV tải lại toàn bộ mã
+const V = 'mes-v55-dung-may'; // đổi tên khi có bản mới để trình duyệt/TV tải lại toàn bộ mã
 const CDN = [
   'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
@@ -37,9 +37,11 @@ const APP = [
   './domain/executive.js',
   './domain/search.js',
   './domain/opslive.js',
+  './domain/downtime.js',
   './data/useAppData.js',
   './data/useExtraData.js',
   './data/flowdata.js',
+  './data/downtimedata.js',
   './modules/auth/login.js',
   './ui/layout.js',
   './modules/dashboard/roleoverview.js',
@@ -52,6 +54,7 @@ const APP = [
   './modules/plan/plan_modals.js',
   './modules/plan/plan.js',
   './modules/downtime/downtime.js',
+  './modules/downtime/downtime_mes.js',
   './modules/quality/quality.js',
   './modules/hr/hr.js',
   './modules/reports/reports.js',
@@ -82,7 +85,7 @@ const APP = [
 self.addEventListener('install', e => e.waitUntil(
   caches.open(V).then(c => Promise.allSettled([
     ...CDN.map(u => c.add(u).catch(() => {})),
-    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=54' : '')).catch(() => {})),
+    ...APP.map(u => c.add(u + (u.endsWith('.js') ? '?v=55' : '')).catch(() => {})),
   ]))
 ));
 self.addEventListener('message', e => {
