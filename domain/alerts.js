@@ -33,8 +33,8 @@ function amgComputeAlerts({ orders, machines, attendance, now, extra }) {
     const days = Math.round((t - today) / 86400000);
     if (days < 0) late.push(o); else if (days <= 7) soon.push(o);
   });
-  if (late.length) out.push({ id: "o-late", level: "err", title: `${late.length} đơn quá hạn giao`, detail: late.slice(0, 4).map(o => o.id).join(", "), tab: "orders" });
-  if (soon.length) out.push({ id: "o-soon", level: "warn", title: `${soon.length} đơn sắp đến hạn (≤ 7 ngày)`, detail: soon.slice(0, 4).map(o => o.id).join(", "), tab: "orders" });
+  if (late.length) out.push({ id: "o-late", level: "err", title: `${late.length} đơn quá hạn giao`, detail: late.slice(0, 4).map(o => amgOrderLabel(o)).join(", "), tab: "orders" });
+  if (soon.length) out.push({ id: "o-soon", level: "warn", title: `${soon.length} đơn sắp đến hạn (≤ 7 ngày)`, detail: soon.slice(0, 4).map(o => amgOrderLabel(o)).join(", "), tab: "orders" });
   const att = (attendance || {})[amgTodayKey(now)] || {};
   const absent = Object.keys(att).filter(id => att[id] && att[id].nghiKhongPhep).length;
   if (absent) out.push({ id: "a-abs", level: "warn", title: `${absent} người nghỉ không phép hôm nay`, detail: "", tab: "staff" });

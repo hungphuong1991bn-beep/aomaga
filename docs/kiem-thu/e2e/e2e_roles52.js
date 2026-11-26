@@ -22,9 +22,9 @@ async function session(user,label,fn){
   const probe=async(E)=>{ const {doc,sleep,clickText,findBtn,click,txt}=E; const r={};
     await clickText(/^Điều hành sản xuất/); await sleep(900); const row=doc.querySelector('tr[data-order="RL-1"]');
     r.opsComplete=!!(row&&findBtn(/^HOÀN THÀNH ĐƠN$/,row)); r.opsAssign=!!findBtn(/^Phân máy$/,doc.querySelector('tr[data-order="RL-1"]')||doc.body);
-    await clickText(/^Kế hoạch sản xuất/); await sleep(1500); const prow=[...doc.querySelectorAll('.amg-row')].find(x=>[...x.querySelectorAll('[title]')].some(e=>e.getAttribute('title')==='RL-1'));
+    await clickText(/^Kế hoạch sản xuất/); await sleep(1500); const prow=[...doc.querySelectorAll('.amg-row')].find(x=>x.getAttribute('data-order')==='RL-1');
     r.planComplete=!!(prow&&findBtn(/^HOÀN THÀNH ĐƠN$/,prow));
-    await clickText(/^Đơn hàng & BOM/); await sleep(700); const orow=[...doc.querySelectorAll('.amg-row')].find(x=>[...x.querySelectorAll('[title]')].some(e=>e.getAttribute('title')==='RL-2'));
+    await clickText(/^Đơn hàng & BOM/); await sleep(700); const orow=[...doc.querySelectorAll('.amg-row')].find(x=>x.getAttribute('data-order')==='RL-2');
     if(orow){ await click(orow); await sleep(500); const m=doc.querySelector('.mes-modal-card'); r.detailEdit=!!findBtn(/^CHỈNH SỬA ĐƠN$/,m); r.detailDel=!!findBtn(/^XÓA ĐƠN$/,m); r.detailPlan=!!findBtn(/^LẬP KẾ HOẠCH SẢN XUẤT$/,m); r.detailHist=!!findBtn(/^XEM LỊCH SỬ$/,m); const bd=doc.querySelector('.mes-mobile-modal-backdrop'); if(bd) await click(bd); }
     return r; };
   await session('nv','Nhân viên',async E=>{ checks.nv=await probe(E); try{ E.w.__AMG_USER&&0; }catch(e){} checks.nvDirect=await E.A(`try{await amgFlowCompleteOrder({orderId:"RL-1"});return "ĐÃ HOÀN THÀNH (SAI)";}catch(e){return e.message}`); });

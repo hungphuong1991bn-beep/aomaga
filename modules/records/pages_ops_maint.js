@@ -28,7 +28,7 @@ function OpsPage({ extra, orders, machines, staff, auditLog, currentUser, runs, 
   const today = amgTodayKey(now);
   const shift = amgCurrentShift(now);
   const ctx = { plans, orders, machines, staff };
-  const planLabel = p => `${p.machineId || "—"} · ${p.orderId || "—"}`;
+  const planLabel = p => `${p.machineId || "—"} · ${amgOrderLabelById(p.orderId)}`;
 
   const planCfg = {
     col: "plans", mod: "dieuhanh", label: "Kế hoạch sản xuất", title: "Kế hoạch ngày / tuần", addLabel: "Lập kế hoạch", exportName: "ke-hoach-san-xuat",
@@ -40,7 +40,7 @@ function OpsPage({ extra, orders, machines, staff, auditLog, currentUser, runs, 
       { key: "horizon", label: "Loại kế hoạch", type: "select", required: true, options: [{ value: "ngay", label: "Kế hoạch ngày" }, { value: "tuan", label: "Kế hoạch tuần (từ ngày…)" }] },
       { key: "date", label: "Ngày", type: "date", required: true },
       { key: "shift", label: "Ca", type: "select", required: true, options: AMG_SHIFT_OPTS },
-      { key: "orderId", label: "Đơn hàng", type: "select", required: true, options: amgOpts(orders, o => o.id, o => `${o.id} – ${o.customer || ""} ${o.spec || ""}`) },
+      { key: "orderId", label: "Đơn hàng", type: "select", required: true, options: amgOpts(orders, o => o.id, o => amgOrderLabel(o)) },
       { key: "stage", label: "Công đoạn", type: "select", required: true, options: STAGES.map(s => ({ value: s.key, label: s.label })) },
       { key: "machineId", label: "Máy được giao", type: "select", required: true, options: amgOpts(machines, m => m.id, m => `${m.id} – ${m.typeLabel || ""}`),
         validate: (v, a, ) => { const m = machines.find(x => x.id === v); return m && m.status === "broken" ? "Máy đang hỏng, không thể giao việc" : ""; } },
@@ -53,7 +53,7 @@ function OpsPage({ extra, orders, machines, staff, auditLog, currentUser, runs, 
     columns: [
       { key: "date", label: "Ngày", render: r => amgFmtDate(r.date) + (r.horizon === "tuan" ? " (tuần)" : ""), export: r => amgFmtDate(r.date) },
       { key: "shift", label: "Ca", render: r => AMG_SHIFT_LABEL[r.shift] || "—", export: r => AMG_SHIFT_LABEL[r.shift] || "" },
-      { key: "machineId", label: "Máy" }, { key: "orderId", label: "Đơn hàng" },
+      { key: "machineId", label: "Máy" }, { key: "orderId", label: "Đơn hàng", render: r => amgOrderLabelById(r.orderId), export: r => amgOrderLabelById(r.orderId) },
       { key: "stage", label: "Công đoạn", render: r => (STAGE_MAP[r.stage] || {}).label || r.stage, export: r => (STAGE_MAP[r.stage] || {}).label || r.stage },
       { key: "targetQty", label: "Kế hoạch", align: "right" },
       { key: "actual", label: "Thực tế", align: "right", sortValue: r => amgActualOutput(auditLog, r.date, r.orderId, r.stage), render: r => amgActualOutput(auditLog, r.date, r.orderId, r.stage).toLocaleString("vi-VN"), export: r => amgActualOutput(auditLog, r.date, r.orderId, r.stage) },

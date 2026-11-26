@@ -56,13 +56,13 @@ function amgComputeOpsLive({ orders, machines, runs, entries, extra, now }) {
 
   // ---- Cảnh báo điều hành ----
   const alerts = [], push = a => alerts.push(a);
-  cards.filter(c => c.state === "broken").forEach(c => push({ id: "down-" + c.id, level: "err", kind: "machine_down", title: `Máy ${c.id} dừng / sự cố`, detail: c.run ? `Đang giữ lệnh ${c.run.id} (đơn ${c.run.orderId}) — cần xử lý hoặc chuyển lệnh` : "Không có lệnh đang giữ", machineId: c.id, orderId: c.run ? c.run.orderId : "" }));
+  cards.filter(c => c.state === "broken").forEach(c => push({ id: "down-" + c.id, level: "err", kind: "machine_down", title: `Máy ${c.id} dừng / sự cố`, detail: c.run ? `Đang giữ lệnh ${c.run.id} (đơn ${amgOrderLabelById(c.run.orderId)}) — cần xử lý hoặc chuyển lệnh` : "Không có lệnh đang giữ", machineId: c.id, orderId: c.run ? c.run.orderId : "" }));
   orderRows.forEach(r => {
     const o = r.order, d = r.life.days;
-    if (r.life.overdue) push({ id: "late-" + o.id, level: "err", kind: "order_overdue", title: `Đơn ${o.id} quá hạn giao ${Math.abs(d)} ngày`, detail: `${o.customer || ""} · ${o.spec || ""} · tiến độ ${r.progress === null ? "—" : r.progress + "%"}`, orderId: o.id });
+    if (r.life.overdue) push({ id: "late-" + o.id, level: "err", kind: "order_overdue", title: `Đơn ${amgOrderLabel(o)} quá hạn giao ${Math.abs(d)} ngày`, detail: `${o.customer || ""} · ${o.spec || ""} · tiến độ ${r.progress === null ? "—" : r.progress + "%"}`, orderId: o.id });
     else if (r.life.days !== null && d <= AMG_EXEC_RISK_WINDOW_DAYS && o.orderDate && r.progress !== null) {
       const a = new Date(String(o.orderDate).slice(0, 10) + "T00:00:00").getTime(), b = new Date(String(o.deliveryDate).slice(0, 10) + "T00:00:00").getTime();
-      if (b > a) { const expected = Math.max(0, Math.min(100, (nowMs - a) / (b - a) * 100)); if (expected - r.progress >= AMG_EXEC_RISK_GAP) push({ id: "risk-" + o.id, level: "warn", kind: "order_risk", title: `Đơn ${o.id} có nguy cơ chậm tiến độ`, detail: `Tiến độ ${r.progress}% so với ${Math.round(expected)}% theo thời gian; còn ${d} ngày đến hạn`, orderId: o.id }); }
+      if (b > a) { const expected = Math.max(0, Math.min(100, (nowMs - a) / (b - a) * 100)); if (expected - r.progress >= AMG_EXEC_RISK_GAP) push({ id: "risk-" + o.id, level: "warn", kind: "order_risk", title: `Đơn ${amgOrderLabel(o)} có nguy cơ chậm tiến độ`, detail: `Tiến độ ${r.progress}% so với ${Math.round(expected)}% theo thời gian; còn ${d} ngày đến hạn`, orderId: o.id }); }
     }
   });
   openRuns.forEach(r => {
@@ -73,15 +73,15 @@ function amgComputeOpsLive({ orders, machines, runs, entries, extra, now }) {
     if (!Number.isNaN(since) && nowMs - since >= AMG_OPS_STALE_RUN_MS) push({ id: "open-" + r.id, level: "warn", kind: "run_open_long", title: `Lệnh ${r.id} (${r.machineId}) chưa kết thúc`, detail: `Mở từ ${amgFmtDateTime(r.startedAt || r.assignedAt)} (${amgHm(nowMs - since)}) — kết thúc lệnh nếu đã xong`, machineId: r.machineId, orderId: r.orderId, runId: r.id });
   });
   const ncr = ((extra && extra.ncr) || []).filter(n => n.status === "mo" || n.status === "dang_xu_ly" || n.status === "cho_xn");
-  if (ncr.length) push({ id: "ncr-open", level: "warn", kind: "quality", title: `${ncr.length} phiếu NG chưa đóng`, detail: ncr.slice(0, 3).map(n => n.id + (n.orderId ? " (" + n.orderId + ")" : "")).join(", ") + (ncr.length > 3 ? "…" : ""), tab: "inspect" });
+  if (ncr.length) push({ id: "ncr-open", level: "warn", kind: "quality", title: `${ncr.length} phiếu NG chưa đóng`, detail: ncr.slice(0, 3).map(n => n.id + (n.orderId ? " (" + amgOrderLabelById(n.orderId) + ")" : "")).join(", ") + (ncr.length > 3 ? "…" : ""), tab: "inspect" });
   const ngToday = ((extra && extra.inspections) || []).filter(i => i.result === "ng" && String(i.date || "").slice(0, 10) === amgTodayKey(todayDate));
-  if (ngToday.length) push({ id: "ng-today", level: "err", kind: "quality", title: `${ngToday.length} phiếu kiểm tra NG hôm nay`, detail: ngToday.slice(0, 3).map(i => `${i.id}${i.orderId ? " (" + i.orderId + ")" : ""}`).join(", "), tab: "inspect" });
+  if (ngToday.length) push({ id: "ng-today", level: "err", kind: "quality", title: `${ngToday.length} phiếu kiểm tra NG hôm nay`, detail: ngToday.slice(0, 3).map(i => `${i.id}${i.orderId ? " (" + amgOrderLabelById(i.orderId) + ")" : ""}`).join(", "), tab: "inspect" });
   const moves = (extra && extra.stockMoves) || [], lots = (extra && extra.lots) || [];
   orderRows.filter(r => r.openRuns.length && (r.order.bom || []).length).forEach(r => { // chỉ khi ĐÃ có dữ liệu xuất kho cho đơn
     const o = r.order, mv = moves.filter(m => m.type === "xuat" && m.orderId === o.id); if (!mv.length) return;
     const issued = {}; mv.forEach(m => { const l = lots.find(x => x.id === m.lotId) || {}; const k = amgSearchNorm(l.material || ""); issued[k] = (issued[k] || 0) + (Number(m.qty) || 0); });
     const qty = Number(o.quantity) || 0; const short = (o.bom || []).filter(l => l.material && (Number(l.norm) || 0) * qty > (issued[amgSearchNorm(l.material)] || 0) + 1e-9).map(l => l.material);
-    if (short.length) push({ id: "mat-" + o.id, level: "warn", kind: "material", title: `Đơn ${o.id} có thể thiếu vật tư`, detail: `Đã xuất kho chưa đủ định mức: ${short.slice(0, 3).join(", ")}${short.length > 3 ? "…" : ""}`, orderId: o.id, tab: "warehouse" });
+    if (short.length) push({ id: "mat-" + o.id, level: "warn", kind: "material", title: `Đơn ${amgOrderLabel(o)} có thể thiếu vật tư`, detail: `Đã xuất kho chưa đủ định mức: ${short.slice(0, 3).join(", ")}${short.length > 3 ? "…" : ""}`, orderId: o.id, tab: "warehouse" });
   });
   const LV = { err: 0, warn: 1, info: 2 }; alerts.sort((a, b) => LV[a.level] - LV[b.level]);
 

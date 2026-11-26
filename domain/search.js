@@ -27,7 +27,7 @@ function amgBuildSearchIndex({ orders, runs, machines, staff, extra, allowedTabs
   (orders || []).forEach(o => {
     const done = o.status === "completed", tab = done ? "completed" : "orders";
     const unit = o.unit === "m" ? "m" : "kg";
-    add(done ? "completed" : "orders", tab, o.id, `${o.id} · ${o.customer || "—"}`, [o.spec, o.materialCode, o.quantity != null ? `${o.quantity} ${unit}` : ""].filter(Boolean).join(" · "), amgSearchHay(o), { orderId: o.id });
+    add(done ? "completed" : "orders", tab, o.id, (o.customer || "—"), [o.spec, o.materialCode, o.quantity != null ? `${o.quantity} ${unit}` : ""].filter(Boolean).join(" · "), amgSearchHay(o), { orderId: o.id });
     const c = amgSearchStr(o.customer); if (c) { (seenC[c] = seenC[c] || { n: 0, tab }).n++; }
     const m = amgSearchStr(o.materialCode); if (m) { (seenM[m] = seenM[m] || { n: 0, tab }).n++; }
     const s = amgSearchStr(o.spec); if (s) { (seenS[s] = seenS[s] || { n: 0, tab }).n++; }
@@ -37,10 +37,10 @@ function amgBuildSearchIndex({ orders, runs, machines, staff, extra, allowedTabs
   Object.keys(seenM).forEach(m => add("materials", tabOrders, "VL:" + m, m, `${seenM[m].n} đơn hàng`, amgSearchNorm(m), { q: m }));
   Object.keys(seenS).forEach(s => add("specs", tabOrders, "QC:" + s, s, `${seenS[s].n} đơn hàng`, amgSearchNorm(s), { q: s }));
   (machines || []).forEach(m => add("machines", "machines", m.id, `${m.id} · ${m.name || m.typeLabel || ""}`.replace(/ · $/, ""), [m.typeLabel, m.status].filter(Boolean).join(" · "), amgSearchHay(m), { q: m.id, screen: "monitor" }));
-  (runs || []).forEach(r => add("runs", "machines", r.id, `${r.id} · ${r.machineId || "—"} · ${r.orderId || "—"}`, [r.stageKey, r.operator, r.productionStatus].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.machineId || r.id, screen: "monitor" }));
+  (runs || []).forEach(r => add("runs", "machines", r.id, `${r.id} · ${r.machineId || "—"} · ${amgOrderLabelById(r.orderId)}`, [r.stageKey, r.operator, r.productionStatus].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.machineId || r.id, screen: "monitor" }));
   (staff || []).forEach(s => add("staff", "staff", s.id, `${s.name || s.id}${s.code ? " · " + s.code : ""}`, [s.team, s.shift, s.status].filter(Boolean).join(" · "), amgSearchHay(s), { q: s.name || s.id }));
-  ((extra && extra.inspections) || []).forEach(r => add("quality", "inspect", r.id, `${r.id} · Phiếu kiểm tra`, [r.orderId, r.result, r.type].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.id }));
-  ((extra && extra.ncr) || []).forEach(r => add("quality", "inspect", r.id, `${r.id} · Phiếu NG`, [r.orderId, r.status].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.id }));
+  ((extra && extra.inspections) || []).forEach(r => add("quality", "inspect", r.id, `${r.id} · Phiếu kiểm tra`, [amgOrderLabelById(r.orderId), r.result, r.type].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.id }));
+  ((extra && extra.ncr) || []).forEach(r => add("quality", "inspect", r.id, `${r.id} · Phiếu NG`, [amgOrderLabelById(r.orderId), r.status].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.id }));
   ((extra && extra.documents) || []).forEach(r => add("docs", "docs", r.id, `${r.title || r.name || r.id}`, [r.id, r.type, r.category].filter(Boolean).join(" · "), amgSearchHay(r), { q: r.title || r.name || r.id }));
   return out;
 }

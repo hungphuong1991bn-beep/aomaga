@@ -36,42 +36,54 @@ function RunChips({ openRuns }) {
     return rkh("span", { key: r.id, className: "amg-pill mes-mono", title: `${r.machineId} · ${amgStageLabel(r.stageKey)} · ${m.label} · ${r.operator || "—"} · ${fmtNum(r.producedQuantity || 0)}/${fmtNum(r.plannedQuantity)}`, style: { background: m.color + "1f", color: m.color, border: `1px solid ${m.color}55` } }, r.machineId);
   }));
 }
-const AMG_PLAN_COLS = "92px minmax(130px,1.5fr) minmax(90px,1fr) 104px minmax(140px,1.6fr) minmax(130px,1.3fr) minmax(130px,1.3fr) 88px 128px 92px";
+/* ---------- v54: bảng Kế hoạch sản xuất — bố cục cột chuyên nghiệp ----------
+   8 cột, mỗi ô tự xuống dòng (không cắt chữ, không chồng chữ). Không còn cột Mã đơn: đơn gọi bằng Khách hàng + Quy cách.
+   Rộng ≥ AMG_PLAN_WIDE_MIN: bảng nhiều cột; hẹp hơn: thẻ gọn có đủ thông tin. */
+const AMG_PLAN_WIDE_MIN = 1180;
+const AMG_PLAN_COLS = "minmax(190px,2fr) 118px minmax(170px,1.55fr) minmax(176px,1.45fr) minmax(112px,1fr) 100px 124px 108px";
+const AMG_PLAN_HEAD = [["Đơn hàng", ""], ["Số lượng", ""], ["Quy trình", ""], ["Tiến độ công đoạn", ""], ["Máy phụ trách", ""], ["Ngày giao", ""], ["Trạng thái", ""], ["Thao tác", "r"]];
 
 // Người vận hành + ca của các lệnh đang mở (đọc từ chính lệnh máy)
 function RunWho({ openRuns }) {
   const rs = openRuns || [], ops = [...new Set(rs.map(r => r.operator).filter(Boolean))], sh = [...new Set(rs.map(r => r.shift).filter(Boolean))];
   if (!rs.length) return null;
-  return rkh("div", { "data-col": "who", style: { fontSize: FZ(11.5), color: COLORS.textDim, marginTop: 3, lineHeight: 1.35 } }, `${ops.join(", ") || "Chưa có người vận hành"}${sh.length ? " · " + sh.join(", ") : ""}`);
+  return rkh("div", { "data-col": "who", className: "pl-sub", style: { marginTop: 4 } }, `${ops.join(", ") || "Chưa có người vận hành"}${sh.length ? " · " + sh.join(", ") : ""}`);
 }
 function PlanRow({ i, wide, runs, can, openModal }) {
-  const o = i.order, bm = amgBucketMeta(i.bucket), info = i.info, rdy = amgOrderReadiness(o);
+  const o = i.order, bm = amgBucketMeta(i.bucket), info = i.info, rdy = amgOrderReadiness(o), un = amgOrderUnit(o);
   const dueColor = i.life.overdue ? COLORS.red : i.life.dueSoon ? COLORS.amber : COLORS.text;
   const pill = (c, t) => rkh("span", { className: "amg-pill", style: { background: c + "1f", color: c } }, t);
-  const cust = rkh("div", { style: { minWidth: 0 } }, rkh(Clamp, { text: o.customer, lines: 2, style: { fontWeight: 800 } }), rkh("div", { className: "mes-mono", title: o.id, style: { fontSize: FZ(12), color: COLORS.textFaint, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, o.id));
-  const progress = info ? rkh("div", { style: { minWidth: 0 } },
-    rkh("div", { style: { fontSize: FZ(12), fontWeight: 800, color: amgStageColor(i.stageKey) } }, amgStageLabel(i.stageKey)),
-    rkh("div", { style: { display: "flex", alignItems: "center", gap: 6 } }, rkh(ProgressBar, { pct: info.pct }), rkh("span", { className: "mes-mono", style: { fontSize: FZ(12), flexShrink: 0 } }, info.pct === null ? "—" : Math.round(info.pct) + "%")),
-    rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, `${fmtNum(info.done)} / ${fmtNum(info.qty)} · còn ${info.remain === null ? "—" : fmtNum(Math.max(0, info.remain))}`)) : rkh("span", { style: { color: COLORS.violet, fontWeight: 800, fontSize: FZ(12) } }, "Đủ công đoạn");
-  const due = rkh("div", { className: "mes-mono", style: { color: dueColor, fontWeight: i.life.overdue || i.life.dueSoon ? 800 : 500 } }, o.deliveryDate ? amgFmtDate(o.deliveryDate) : "—", i.life.overdue && rkh("div", { style: { fontSize: FZ(12) } }, "Quá hạn"), i.life.dueSoon && !i.life.overdue && rkh("div", { style: { fontSize: FZ(12) } }, i.life.days === 0 ? "Hôm nay" : `Còn ${i.life.days} ngày`));
-  const act = rkh("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexWrap: "wrap", gap: 4, justifyContent: wide ? "flex-start" : "flex-end" } },
+  const hasPrio = o.priority && o.priority !== "normal";
+  const cust = rkh("div", { className: "pl-cell", "data-col": "order" },
+    rkh("div", { className: "pl-main", title: o.customer || "" }, o.customer || "—"),
+    rkh("div", { className: "pl-spec mes-mono", title: o.spec || "" }, o.spec || "—"),
+    rkh("div", { className: "pl-tags" }, o.materialCode ? rkh("span", { className: "pl-tag" }, "NL " + o.materialCode) : null, hasPrio ? rkh(PriorityBadge, { value: o.priority }) : null));
+  const qty = rkh("div", { className: "pl-cell", "data-col": "qty" },
+    rkh("div", { className: "pl-main pl-num mes-mono" }, fmtNum(o.quantity), rkh("span", { className: "amg-unit" }, un)),
+    rkh("div", { "data-col": "finished", className: "pl-sub pl-num" }, `Xong ${fmtNum(rdy.finished)}`),
+    rkh("div", { className: "pl-sub pl-num" }, `Còn ${fmtNum(Math.max(0, (rdy.qty || 0) - rdy.finished))}`));
+  const progress = rkh("div", { className: "pl-cell", "data-col": "progress" }, info ? rkh(React.Fragment, null,
+    rkh("div", { style: { fontSize: FZ(12.5), fontWeight: 800, color: amgStageColor(i.stageKey), marginBottom: 4 } }, amgStageLabel(i.stageKey)),
+    rkh("div", { style: { display: "flex", alignItems: "center", gap: 8 } }, rkh("div", { style: { flex: 1, minWidth: 40 } }, rkh(ProgressBar, { pct: info.pct })), rkh("span", { className: "mes-mono pl-num", style: { fontSize: FZ(12.5), fontWeight: 700, flexShrink: 0 } }, info.pct === null ? "—" : Math.round(info.pct) + "%")),
+    rkh("div", { className: "pl-sub pl-num", style: { marginTop: 4 } }, `${fmtNum(info.done)} / ${fmtNum(info.qty)} · còn ${info.remain === null ? "—" : fmtNum(Math.max(0, info.remain))}`)) :
+    rkh("span", { style: { color: COLORS.violet, fontWeight: 800, fontSize: FZ(12.5) } }, "Đủ công đoạn"));
+  const due = rkh("div", { className: "pl-cell mes-mono pl-num", "data-col": "due", style: { color: dueColor, fontWeight: i.life.overdue || i.life.dueSoon ? 800 : 600 } }, o.deliveryDate ? amgFmtDate(o.deliveryDate) : "—",
+    i.life.overdue && rkh("div", { className: "pl-sub", style: { color: COLORS.red, fontWeight: 700 } }, "Quá hạn"),
+    i.life.dueSoon && !i.life.overdue && rkh("div", { className: "pl-sub", style: { color: COLORS.amber, fontWeight: 700 } }, i.life.days === 0 ? "Hôm nay" : `Còn ${i.life.days} ngày`));
+  const machines = rkh("div", { className: "pl-cell", "data-col": "machines" }, rkh(RunChips, { openRuns: i.openRuns }), rkh(RunWho, { openRuns: i.openRuns }));
+  const status = rkh("div", { className: "pl-cell", "data-col": "status" }, pill(bm.color, bm.label));
+  const act = rkh("div", { className: "pl-act", onClick: e => e.stopPropagation() },
     can.plan && i.stageKey && i.bucket !== "stage_done" && rkh(Button, { size: "sm", variant: "primary", onClick: () => openModal({ kind: "assign", orderId: o.id, stageKey: i.stageKey }) }, "Phân máy"),
     can.manager && i.bucket === "stage_done" && rkh(Button, { size: "sm", variant: "primary", onClick: () => can.completeOrder(o) }, "HOÀN THÀNH ĐƠN"),
     rkh(Button, { size: "sm", onClick: () => openModal({ kind: "detail", orderId: o.id }) }, "Chi tiết"));
-  const edge = bm.color;
   const click = () => openModal({ kind: "detail", orderId: o.id });
-  if (wide) return rkh("div", { className: "amg-row", style: { gridTemplateColumns: AMG_PLAN_COLS, borderLeftColor: edge }, onClick: click },
-    rkh("div", null, rkh(PriorityBadge, { value: o.priority })), cust,
-    rkh("div", { style: { minWidth: 0 } }, rkh(Clamp, { text: o.spec, lines: 2, mono: true }), rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, "NL " + (o.materialCode || "—"))),
-    rkh("div", { style: { textAlign: "right" } }, rkh("div", { className: "mes-mono", style: { fontWeight: 700 } }, fmtNum(o.quantity) + " " + amgOrderUnit(o)), rkh("div", { "data-col": "finished", style: { fontSize: FZ(11.5), color: COLORS.textDim } }, `xong ${fmtNum(rdy.finished)} · còn ${fmtNum(Math.max(0, (rdy.qty || 0) - rdy.finished))}`)),
-    rkh(StageChips, { order: o, runs, compact: true }), progress, rkh("div", { style: { minWidth: 0 } }, rkh(RunChips, { openRuns: i.openRuns }), rkh(RunWho, { openRuns: i.openRuns })), due, pill(bm.color, bm.label), act);
-  return rkh("div", { className: "amg-row amg-row--card", style: { borderLeftColor: edge }, onClick: click },
-    rkh("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "flex-start" } }, rkh("div", { style: { flex: "1 1 180px", minWidth: 0 } }, cust), rkh("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } }, rkh(PriorityBadge, { value: o.priority }), pill(bm.color, bm.label))),
+  if (wide) return rkh("div", { className: "amg-row pl-row", "data-order": o.id, style: { "--pl-cols": AMG_PLAN_COLS, borderLeftColor: bm.color }, onClick: click },
+    cust, qty, rkh("div", { className: "pl-cell" }, rkh(StageChips, { order: o, runs, compact: true })), progress, machines, due, status, act);
+  return rkh("div", { className: "amg-row pl-row pl-row--card", "data-order": o.id, style: { borderLeftColor: bm.color }, onClick: click },
+    rkh("div", { className: "pl-card-top" }, rkh("div", { style: { flex: "1 1 200px", minWidth: 0 } }, cust), rkh("div", { className: "pl-card-st" }, status, due)),
     rkh(StageChips, { order: o, runs, compact: true }),
-    rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "6px 12px" } },
-      rkh(KV, { label: "Quy cách / NL" }, `${o.spec || "—"} · ${o.materialCode || "—"}`), rkh(KV, { label: "Số lượng" }, rkh("span", { className: "mes-mono" }, fmtNum(o.quantity))),
-      rkh(KV, { label: "Đã hoàn thành" }, `${fmtNum(rdy.finished)} / ${fmtNum(o.quantity)} ${amgOrderUnit(o)}`), rkh(KV, { label: "Máy phụ trách" }, rkh("div", null, rkh(RunChips, { openRuns: i.openRuns }), rkh(RunWho, { openRuns: i.openRuns }))), rkh(KV, { label: "Ngày giao", style: { color: dueColor } }, due)),
-    progress, act);
+    rkh("div", { className: "pl-card-grid" }, rkh(KV, { label: "Số lượng" }, qty), rkh(KV, { label: "Tiến độ công đoạn" }, progress), rkh(KV, { label: "Máy phụ trách" }, machines)),
+    act);
 }
 
 
@@ -107,13 +119,14 @@ function UnconfirmedPanel({ orders, isAdmin, openModal }) {
         rkh("div", { style: { fontSize: FZ(12), color: COLORS.textDim, marginTop: 2 } }, "Hệ thống không tự suy công đoạn từ quy cách. Quản đốc/Admin tích công đoạn cần làm và xác nhận để đơn vào kế hoạch.")),
       rkh(Button, { size: "sm", onClick: () => setOpen(o => !o) }, open ? "Thu gọn" : "Xem danh sách")),
     open && rkh("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 4 } }, orders.slice(0, 60).map(o => rkh("div", { key: o.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 8px", borderRadius: 8, background: COLORS.bgInset, fontSize: FZ(13) } },
-      rkh("span", null, rkh("b", { className: "mes-mono" }, o.id), ` · ${o.customer || "—"} · ${o.spec || "—"} · ${fmtNum(o.quantity)} ${amgOrderUnit(o)}`),
+      rkh("span", null, rkh("b", null, o.customer || "—"), ` · ${o.spec || "—"} · ${fmtNum(o.quantity)} ${amgOrderUnit(o)}`),
       isAdmin ? rkh(Button, { size: "sm", variant: "primary", onClick: () => openModal({ kind: "routing", orderId: o.id }) }, "Xác nhận quy trình") : rkh("span", { style: { color: COLORS.textFaint } }, "Chờ Quản đốc/Admin xác nhận")))));
 }
 
 /* ===================== MÀN 1: KẾ HOẠCH & PHÂN CÔNG ===================== */
-function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ }) {
+function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ, initialOrderId }) {
   const [q, setQ] = useState(initialQ || "");
+  const [only, setOnly] = useState(initialOrderId || ""); // lọc theo một đơn (đi từ Đơn hàng / Điều hành) — không phải gõ mã
   const [bucket, setBucket] = useState("all");
   const [stage, setStage] = useState("all");
   const [prio, setPrio] = useState("all");
@@ -122,11 +135,11 @@ function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ }
   const [dFrom, setDFrom] = useState(""), [dTo, setDTo] = useState("");
   const [page, setPage] = useState(1), [pageSize, setPageSize] = useState(20);
   const [boxRef, boxW] = useBoxWidth();
-  const wide = amgIsWide(boxW);
+  const wide = !boxW || boxW >= AMG_PLAN_WIDE_MIN;
   const items = useMemo(() => orders
     .filter(o => amgIsActiveOrder(o) && amgIsFlowOrder(o))
     .map(o => Object.assign({ order: o }, amgPlanBucket(o, runs), { life: amgOrderLifecycle(o, runs) }))
-    .sort((a, b) => (amgPriorityMeta(a.order.priority).rank - amgPriorityMeta(b.order.priority).rank) || String(a.order.deliveryDate || "9999").localeCompare(String(b.order.deliveryDate || "9999")) || String(a.order.id).localeCompare(String(b.order.id))), [orders, runs]);
+    .sort((a, b) => (amgPriorityMeta(a.order.priority).rank - amgPriorityMeta(b.order.priority).rank) || String(a.order.deliveryDate || "9999").localeCompare(String(b.order.deliveryDate || "9999")) || String(a.order.customer || "").localeCompare(String(b.order.customer || "")) || String(a.order.id).localeCompare(String(b.order.id))), [orders, runs]);
   const counts = {};
   ["unassigned", "assigned", "running", "paused", "stage_done", "waiting_next"].forEach(k => { counts[k] = items.filter(i => i.bucket === k).length; });
   const unconfirmed = useMemo(() => amgUnconfirmedOrders(orders), [orders]);
@@ -140,18 +153,19 @@ function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ }
     if (fMachine === "none" ? i.openRuns.length > 0 : fMachine !== "all" && !i.openRuns.some(r => r.machineId === fMachine)) return false;
     if (dFrom && (i.order.deliveryDate || "") < dFrom) return false;
     if (dTo && (i.order.deliveryDate || "9999") > dTo) return false;
+    if (only && i.order.id !== only) return false;
     if (!t) return true;
     const machinesOf = amgRunsOfOrder(runs, i.order.id).map(r => r.machineId).join(" ");
-    return [i.order.id, i.order.customer, i.order.spec, i.order.materialCode, i.order.note, machinesOf].some(v => String(v || "").toLowerCase().includes(t));
+    return [i.order.customer, i.order.spec, i.order.materialCode, i.order.note, machinesOf].some(v => String(v || "").toLowerCase().includes(t));
   });
-  useEffect(() => { setPage(1); }, [q, bucket, stage, prio, fMachine, fCust, dFrom, dTo, pageSize]);
+  useEffect(() => { setPage(1); }, [q, bucket, stage, prio, fMachine, fCust, dFrom, dTo, pageSize, only]);
   const pg = amgPaginate(list, page, pageSize);
   const machineGroups = useMemo(() => {
     const g = {}; (machines || []).forEach(m => { const k = m.typeLabel || m.typeKey || "Khác"; (g[k] = g[k] || []).push(m.id); });
     return Object.keys(g).map(k => [k, g[k].sort(amgNaturalCmp)]);
   }, [machines]);
   const cols = [
-    { key: "id", label: "Mã đơn", export: i => i.order.id }, { key: "customer", label: "Khách hàng", export: i => i.order.customer },
+    { key: "customer", label: "Khách hàng", export: i => i.order.customer },
     { key: "material", label: "Nguyên liệu", export: i => i.order.materialCode }, { key: "spec", label: "Quy cách", export: i => i.order.spec },
     { key: "qty", label: "Số lượng", export: i => i.order.quantity }, { key: "route", label: "Quy trình", export: i => i.route.map(amgStageLabel).join(" → ") },
     { key: "cur", label: "Công đoạn hiện tại", export: i => amgStageLabel(i.stageKey) },
@@ -162,27 +176,28 @@ function PlanBoard({ orders, machines, runs, can, openModal, isAdmin, initialQ }
   ];
   const sel = { className: "mes-input", style: { width: "auto", minWidth: 130, maxWidth: 200 } };
   const dateIn = (v, set, title) => rkh("input", { className: "mes-input", type: "date", title, value: v, onChange: e => set(e.target.value), style: { width: "auto" } });
-  const dirty = q || bucket !== "all" || stage !== "all" || prio !== "all" || fMachine !== "all" || fCust !== "all" || dFrom || dTo;
+  const dirty = only || q || bucket !== "all" || stage !== "all" || prio !== "all" || fMachine !== "all" || fCust !== "all" || dFrom || dTo;
   return rkh("div", null,
     rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 10, marginBottom: 14 } },
       ["unassigned", "assigned", "running", "paused", "stage_done", "waiting_next"].map(k => { const m = amgBucketMeta(k); return amgKpiTile(m.label, counts[k], m.color, bucket === k, () => setBucket(b => (b === k ? "all" : k))); })),
     rkh("div", { className: "amg-toolbar", style: { marginBottom: 10 } },
       rkh("div", { style: { position: "relative", flex: "1 1 220px", minWidth: 200 } }, rkh(Search, { size: 14, style: { position: "absolute", left: 10, top: 10, color: COLORS.textFaint } }),
-        rkh("input", { className: "mes-input", style: { paddingLeft: 30, width: "100%" }, placeholder: "Tìm mã đơn, khách hàng, quy cách, nguyên liệu, mã máy...", value: q, onChange: e => setQ(e.target.value) })),
+        rkh("input", { className: "mes-input", style: { paddingLeft: 30, width: "100%" }, placeholder: "Tìm khách hàng, quy cách, nguyên liệu, mã máy...", value: q, onChange: e => setQ(e.target.value) })),
       rkh("select", Object.assign({ value: fMachine, onChange: e => setFMachine(e.target.value), title: "Lọc theo máy đang giữ lệnh" }, sel), rkh("option", { value: "all" }, "Mọi máy"), rkh("option", { value: "none" }, "Chưa có máy"), machineGroups.map(([g, ids]) => rkh("optgroup", { key: g, label: g }, ids.map(id => rkh("option", { key: id, value: id }, id))))),
       rkh("select", Object.assign({ value: stage, onChange: e => setStage(e.target.value) }, sel), rkh("option", { value: "all" }, "Mọi công đoạn"), STAGES.map(s => rkh("option", { key: s.key, value: s.key }, s.label))),
       rkh("select", Object.assign({ value: fCust, onChange: e => setFCust(e.target.value) }, sel), rkh("option", { value: "all" }, "Mọi khách hàng"), customers.map(c => rkh("option", { key: c, value: c }, c))),
       rkh("select", Object.assign({ value: bucket, onChange: e => setBucket(e.target.value) }, sel), rkh("option", { value: "all" }, "Mọi trạng thái"), ["unassigned", "assigned", "running", "paused", "waiting_next", "stage_done"].map(k => rkh("option", { key: k, value: k }, amgBucketMeta(k).label))),
       rkh("select", Object.assign({ value: prio, onChange: e => setPrio(e.target.value) }, sel), rkh("option", { value: "all" }, "Mọi mức ưu tiên"), AMG_PRIORITY_KEYS.map(k => rkh("option", { key: k, value: k }, amgPriorityMeta(k).label)))),
     rkh("div", { className: "amg-toolbar", style: { marginBottom: 12, fontSize: FZ(12), color: COLORS.textDim } }, "Ngày giao:", dateIn(dFrom, setDFrom, "Giao từ ngày"), "–", dateIn(dTo, setDTo, "Giao đến ngày"),
-      dirty && rkh(Button, { size: "sm", variant: "ghost", onClick: () => { setQ(""); setBucket("all"); setStage("all"); setPrio("all"); setFMachine("all"); setFCust("all"); setDFrom(""); setDTo(""); } }, "Xóa bộ lọc"),
+      dirty && rkh(Button, { size: "sm", variant: "ghost", onClick: () => { setQ(""); setBucket("all"); setStage("all"); setPrio("all"); setFMachine("all"); setFCust("all"); setDFrom(""); setDTo(""); setOnly(""); } }, "Xóa bộ lọc"),
       rkh("span", { style: { marginLeft: "auto", display: "flex", gap: 8, alignItems: "center" } }, rkh("b", null, `${list.length} / ${items.length} đơn`),
         rkh(Button, { disabled: list.length === 0, onClick: () => amgExportExcel("ke-hoach-san-xuat", cols, list, "Kế hoạch") }, rkh(Download, { size: 14 }), " Xuất Excel"))),
+    only && rkh(AmgNotice, { tone: "info" }, `Đang xem riêng đơn: ${amgOrderLabelById(only)}. Bấm "Xóa bộ lọc" để xem toàn bộ kế hoạch.`),
     unconfirmed.length > 0 && rkh(UnconfirmedPanel, { orders: unconfirmed, isAdmin, openModal }),
     rkh("div", { className: "mes-card", ref: boxRef, style: { overflow: "hidden" } },
       list.length === 0 ? rkh(EmptyState, { title: items.length === 0 ? "Chưa có đơn nào trong kế hoạch" : "Không có đơn phù hợp bộ lọc", hint: items.length === 0 ? "Tạo đơn ở tab Đơn hàng và tích các công đoạn cần làm — đơn sẽ tự xuất hiện tại đây." : undefined }) :
         rkh("div", null,
-          wide && rkh("div", { className: "amg-hdr", style: { gridTemplateColumns: AMG_PLAN_COLS } }, ["Ưu tiên", "Khách hàng / Mã đơn", "Quy cách", "Số lượng", "Quy trình", "Tiến độ công đoạn", "Máy phụ trách", "Ngày giao", "Trạng thái", ""].map((h, k) => rkh("div", { key: k, style: { textAlign: k === 3 ? "right" : "left" } }, h))),
+          wide && rkh("div", { className: "pl-hdr", style: { "--pl-cols": AMG_PLAN_COLS } }, AMG_PLAN_HEAD.map(([h, al], k) => rkh("div", { key: k, style: { textAlign: al === "r" ? "right" : "left" } }, h))),
           pg.items.map(i => rkh(PlanRow, { key: i.order.id, i, wide, runs, can, openModal })),
           rkh(Pager, { total: list.length, page: pg.page, pageSize, onPage: setPage, onSize: setPageSize }))));
 }
@@ -195,11 +210,11 @@ function OrderPlanDetail({ order, runs, machines, orders, auditLog, can, openMod
   const life = amgOrderLifecycle(order, runs);
   const rd = amgOrderReadiness(order);
   const prog = orderProgress(normalizeOrderStages(order));
-  const rows = [["Mã đơn", order.id], ["Khách hàng", order.customer || "—"], ["Nguyên liệu", order.materialCode || "—"], ["Quy cách", order.spec || "—"], ["Số lượng", fmtNum(order.quantity)],
+  const rows = [["Khách hàng", order.customer || "—"], ["Nguyên liệu", order.materialCode || "—"], ["Quy cách", order.spec || "—"], ["Số lượng", fmtNum(order.quantity)],
     ["Công đoạn hiện tại", cur ? amgStageLabel(cur) : "Đã đủ công đoạn"], ["Công đoạn tiếp theo", next ? amgStageLabel(next) : "—"],
     ["Sản lượng đã chạy", curInfo ? fmtNum(curInfo.done) : fmtNum(prog.completedQty)], ["Số lượng còn lại", curInfo && curInfo.remain !== null ? fmtNum(Math.max(0, curInfo.remain)) : fmtNum(Math.max(0, prog.remainingQty || 0))],
     ["Ngày giao", order.deliveryDate ? amgFmtDate(order.deliveryDate) : "—"], ["Mức ưu tiên", amgPriorityMeta(order.priority).label], ["Thành phẩm / tiến độ", `${fmtNum(prog.completedQty)}${prog.pct === null ? "" : " · " + Math.round(prog.pct) + "%"}`]];
-  return rkh(Modal, { title: `Kế hoạch đơn ${order.id} · ${order.customer || ""}`, onClose, width: 900 },
+  return rkh(Modal, { title: `Kế hoạch đơn · ${amgOrderLabel(order)}`, onClose, width: 900 },
     rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(170px,1fr))", gap: 8, padding: 12, borderRadius: 10, background: COLORS.bgInset, border: `1px solid ${COLORS.border}`, marginBottom: 14 } },
       rows.map(([a, b]) => rkh("div", { key: a }, rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint, fontWeight: 600 } }, a), rkh("div", { style: { fontSize: FZ(14), fontWeight: 700, wordBreak: "break-word" } }, b)))),
     life.overdue && rkh(AmgNotice, { tone: "err" }, `Đơn quá hạn giao ${Math.abs(life.days)} ngày.`),
@@ -289,10 +304,10 @@ function MachineCard({ machine, runs, orders, can, openModal, act, tv }) {
       !run ? rkh("div", { style: { textAlign: "center", padding: tv ? "26px 0" : "14px 0", fontWeight: 800, fontSize: tv ? 34 : 19, color: tv ? "#7C93B8" : COLORS.textFaint, letterSpacing: ".04em" } }, "MÁY TRỐNG — CHƯA CÓ LỆNH") :
         rkh(React.Fragment, null,
           rkh("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
-            rkh("div", { className: "mes-mono", style: { fontSize: S.big + 2, fontWeight: 800, color: tv ? "#fff" : COLORS.text } }, run.orderId),
+            rkh("div", { className: "mes-mono", style: { fontSize: S.big + 2, fontWeight: 800, color: tv ? "#fff" : COLORS.text } }, oi.customer || "—"),
             rkh("span", { style: { fontSize: tv ? 16 : 11.5, fontWeight: 800, padding: "3px 10px", borderRadius: 999, background: `${stageC}30`, color: stageC, border: `1px solid ${stageC}` } }, amgStageLabel(run.stageKey))),
           rkh("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: tv ? 12 : 8 } },
-            field("Khách hàng", oi.customer || "—"), field("Nguyên liệu", oi.materialCode || "—"), field("Quy cách", oi.spec || "—"), field("Số lượng kế hoạch", `${fmtNum(planned)} ${unit}`)),
+            field("Hạn giao", oi.order && oi.order.deliveryDate ? amgFmtDate(oi.order.deliveryDate) : "—"), field("Nguyên liệu", oi.materialCode || "—"), field("Quy cách", oi.spec || "—"), field("Số lượng kế hoạch", `${fmtNum(planned)} ${unit}`)),
           rkh("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: tv ? 12 : 8 } },
             field(`Đã sản xuất (${unit})`, fmtNum(produced), true), field(`Còn lại (${unit})`, fmtNum(remain), true)),
           rkh("div", null,
@@ -376,7 +391,7 @@ function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, c
     if (status !== "all" && st !== status) return false;
     if (!t) return true;
     const run = amgOpenRunOfMachine(runs, m.id), oi = run ? amgRunOrderInfo(run, orders) : null;
-    return [m.id, m.typeLabel, run && run.orderId, oi && oi.customer, oi && oi.spec, oi && oi.materialCode, run && run.operator].some(v => String(v || "").toLowerCase().includes(t));
+    return [m.id, m.typeLabel, oi && oi.customer, oi && oi.spec, oi && oi.materialCode, run && run.operator].some(v => String(v || "").toLowerCase().includes(t));
   });
   const groups = MACHINE_TYPES.filter(ty => ty.stage).map(ty => ({ type: ty, list: filtered.filter(m => m.typeKey === ty.key).sort((a, b) => amgNaturalCmp(a.id, b.id)) })).filter(g => g.list.length);
   const subBtn = (k, label) => rkh("button", { key: k, onClick: () => setSub(k), style: { background: "none", border: "none", cursor: "pointer", padding: "8px 4px", marginRight: 18, fontWeight: 700, fontSize: FZ(14), color: sub === k ? COLORS.copperBright : COLORS.textDim, borderBottom: sub === k ? `2px solid ${COLORS.copper}` : "2px solid transparent" } }, label);
@@ -388,7 +403,7 @@ function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, c
           ["running", "assigned", "paused", "idle", "broken", "maintenance"].map(k => { const m = amgCardStatusMeta(k); return amgKpiTile(m.label.charAt(0) + m.label.slice(1).toLowerCase(), cnt[k], m.color, status === k, () => setStatus(s => (s === k ? "all" : k))); })),
         rkh("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } },
           rkh("div", { style: { position: "relative", flex: 1, minWidth: 220 } }, rkh(Search, { size: 14, style: { position: "absolute", left: 10, top: 10, color: COLORS.textFaint } }),
-            rkh("input", { className: "mes-input", style: { paddingLeft: 30 }, placeholder: "Tìm mã máy, mã đơn, khách hàng, quy cách, người vận hành...", value: q, onChange: e => setQ(e.target.value) })),
+            rkh("input", { className: "mes-input", style: { paddingLeft: 30 }, placeholder: "Tìm mã máy, khách hàng, quy cách, người vận hành...", value: q, onChange: e => setQ(e.target.value) })),
           rkh("select", { className: "mes-input", style: { width: "auto", minWidth: 190 }, value: group, onChange: e => setGroup(e.target.value) }, rkh("option", { value: "all" }, "Tất cả nhóm máy"), MACHINE_TYPES.filter(ty => ty.stage).map(ty => rkh("option", { key: ty.key, value: ty.key }, `${ty.label} (${ty.prefix})`))),
           rkh(Button, { variant: "primary", onClick: () => setTv(true) }, "Màn hình TV")),
         groups.length === 0 ? rkh(EmptyState, { title: mm.length === 0 ? "Chưa có máy trong danh mục" : "Không có máy phù hợp bộ lọc", hint: mm.length === 0 ? "Vào mục Danh mục máy để khôi phục/thêm máy." : undefined }) :
@@ -424,10 +439,10 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     busyComplete.current[order.id] = true;
     try {
       const r = await amgCompleteOrderOneStep(order, runs, { source: "plan" });
-      if (r.status === "blocked") { await showAlert(r.blockers.join("\n"), { title: "Chưa hoàn thành được đơn " + order.id }); return; }
+      if (r.status === "blocked") { await showAlert(r.blockers.join("\n"), { title: "Chưa hoàn thành được đơn " + amgOrderLabel(order) }); return; }
       if (r.status === "need_reason") { setModal({ kind: "complete", orderId: order.id }); return; }
       setModal(null);
-      notify(r.status === "duplicate" ? `Đơn ${order.id} đã được hoàn thành trước đó (có thể người khác vừa thực hiện)` : `Đơn ${order.id} đã hoàn thành và chuyển sang Đơn hàng hoàn thành`, "ok", order.id);
+      notify(r.status === "duplicate" ? `Đơn ${amgOrderLabel(order)} đã được hoàn thành trước đó (có thể người khác vừa thực hiện)` : `Đơn ${amgOrderLabel(order)} đã hoàn thành và chuyển sang Đơn hàng hoàn thành`, "ok", order.id);
     } catch (e) { await showAlert(e.message || String(e), { title: "Không hoàn thành được đơn" }); }
     finally { delete busyComplete.current[order.id]; }
   }
@@ -456,7 +471,7 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     toast && rkh("div", { className: "mes-fade-in", style: { position: "fixed", top: 70, right: 24, zIndex: 4000, maxWidth: 420, padding: "12px 16px", borderRadius: 10, fontSize: FZ(14), fontWeight: 600, color: "#fff", background: toast.tone === "ok" ? COLORS.green : COLORS.red, boxShadow: "0 6px 20px rgba(0,0,0,.3)" } }, toast.msg, toast.openOrderId && onNavigate && rkh("div", { style: { marginTop: 8 } }, rkh(Button, { size: "sm", onClick: () => openCompleted(toast.openOrderId) }, "Mở chi tiết đơn đã hoàn thành"))),
     rkh("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
       [["plan", "Kế hoạch & phân công sản xuất"], ["monitor", "Giám sát máy móc"]].map(([k, l]) => rkh("button", { key: k, onClick: () => setScreen(k), className: "mes-btn", style: { padding: "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: FZ(14), border: `2px solid ${screen === k ? COLORS.copper : COLORS.border}`, background: screen === k ? `${COLORS.copper}16` : COLORS.bgPanel, color: screen === k ? COLORS.copper : COLORS.textDim } }, l))),
-    screen === "plan" ? rkh(PlanBoard, { orders, machines, runs, can, openModal: setModal, isAdmin, initialQ: focus0 && focus0.q ? focus0.q : "" }) :
+    screen === "plan" ? rkh(PlanBoard, { orders, machines, runs, can, openModal: setModal, isAdmin, initialQ: focus0 && focus0.q ? focus0.q : "", initialOrderId: focus0 && focus0.orderId ? focus0.orderId : "" }) :
       rkh(MonitorScreen, { initialQ: focus0 && focus0.q ? focus0.q : "", machines, runs, orders, entries, can, openModal: setModal, act, catalogProps: { machines, isAdmin, canEdit, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed } }),
     modal && modal.kind === "detail" && ordObj && rkh(OrderPlanDetail, { order: ordObj, runs, machines, orders, auditLog, can, openModal: setModal, onClose: close, act }),
     modal && modal.kind === "assign" && rkh(AssignModal, { order: ordObj || undefined, orders, machines, runs, staff, fixedMachine: macObj || undefined, initialStage: modal.stageKey, onClose: close, onDone: (m, newRun, askStart) => { notify(m); if (askStart && newRun) setTimeout(() => setModal({ kind: "start", runId: newRun.id }), 80); } }),

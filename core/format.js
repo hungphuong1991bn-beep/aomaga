@@ -48,3 +48,20 @@ function uid(prefix) {
 }
 // So khớp đường kính dây (vd "0.53") với quy cách đơn hàng (vd "0.53BC", "7/0.53BC", "0.53")
 // — dùng để phân biệt các đơn cùng khách hàng/mã liệu nhưng khác đường kính.
+
+/* ---------- v54: BỎ MÃ ĐƠN ----------
+   Giao diện không còn hiện mã đơn (id nội bộ tự sinh). Đơn được gọi bằng "Khách hàng · Quy cách".
+   Id vẫn dùng bên trong để liên kết lệnh máy / sản lượng. Hàm tra tên theo id cho các chỗ chỉ có orderId (lệnh, phiếu...). */
+var AMG_ORDER_INDEX = {};
+function amgIndexOrders(list) {
+  var m = {};
+  (list || []).forEach(function (o) { if (o && o.id) m[o.id] = o; });
+  AMG_ORDER_INDEX = m;
+}
+function amgOrderLabel(o) {
+  var ord = o && typeof o === "object" ? o : AMG_ORDER_INDEX[o];
+  if (!ord) return o ? "Đơn đã xóa" : "—";
+  var parts = [ord.customer, ord.spec].map(function (x) { return String(x == null ? "" : x).trim(); }).filter(Boolean);
+  return parts.length ? parts.join(" · ") : "Đơn chưa đặt tên";
+}
+function amgOrderLabelById(id) { return id ? amgOrderLabel(AMG_ORDER_INDEX[id] || id) : "—"; }

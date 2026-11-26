@@ -132,7 +132,7 @@ async function amgFlowAssign(p) {
       if (!cur || !amgRunIsLive(cur) || cur.machineId !== machine.id) continue;
       // Bấm lại / mở lại hộp thoại: cùng đơn + cùng công đoạn + cùng máy → không tạo lệnh thứ hai
       if (cur.orderId === order.id && cur.stageKey === stageKey) return { duplicate: true, run: cur };
-      throw new Error(`Máy ${machine.id} vừa được phân lệnh ${cur.id} (đơn ${cur.orderId}). Làm mới trang rồi chọn máy khác hoặc kết thúc lệnh đó`);
+      throw new Error(`Máy ${machine.id} vừa được phân lệnh ${cur.id} (đơn ${amgOrderLabelById(cur.orderId)}). Làm mới trang rồi chọn máy khác hoặc kết thúc lệnh đó`);
     }
     const now = amgNowIso(), who = amgWho();
     const run = {
@@ -149,7 +149,7 @@ async function amgFlowAssign(p) {
     const orderPatch = { openRunIds: (order.openRunIds || []).filter(x => x !== runId).concat([runId]) };
     if (p.startNow && !order.productionStartedAt) orderPatch.productionStartedAt = now;
     ctx.set(FS.orders, order.id, amgFlowBump(order, orderPatch), true);
-    amgFlowAudit(ctx, "plan_assign", `Phân đơn ${order.id} (${order.customer || ""} / ${order.spec || ""}) vào máy ${machine.id} — công đoạn ${amgStageLabel(stageKey)}, KH ${fmtNum(planned)}`, order.id, { machineId: machine.id, stageKey, runId, fromStatus: "unassigned", toStatus: run.productionStatus });
+    amgFlowAudit(ctx, "plan_assign", `Phân đơn ${order.customer || ""} / ${order.spec || ""} vào máy ${machine.id} — công đoạn ${amgStageLabel(stageKey)}, KH ${fmtNum(planned)}`, order.id, { machineId: machine.id, stageKey, runId, fromStatus: "unassigned", toStatus: run.productionStatus });
     return { run };
   });
 }
@@ -175,7 +175,7 @@ async function amgFlowStart(runId) {
     ctx.set(AMG_FLOW_COLS.runs, runId, { productionStatus: "running", startedAt: now, version: (run.version || 0) + 1 }, true);
     if (machine && machine.activeRunId !== run.id) ctx.set(FS.machines, machine.id, { activeRunId: run.id }, true);
     if (!order.productionStartedAt) ctx.set(FS.orders, order.id, amgFlowBump(order, { productionStartedAt: now }), true);
-    amgFlowAudit(ctx, "run_start", `Bắt đầu chạy lệnh ${runId}: đơn ${run.orderId} trên máy ${run.machineId}`, run.orderId, { machineId: run.machineId, stageKey: run.stageKey, runId, fromStatus: "assigned", toStatus: "running" });
+    amgFlowAudit(ctx, "run_start", `Bắt đầu chạy lệnh ${runId}: đơn ${amgOrderLabelById(run.orderId)} trên máy ${run.machineId}`, run.orderId, { machineId: run.machineId, stageKey: run.stageKey, runId, fromStatus: "assigned", toStatus: "running" });
     return { run: Object.assign({}, run, { productionStatus: "running", startedAt: now }) };
   });
 }
@@ -422,7 +422,7 @@ async function amgFlowCompleteOrderCas({ orderId, reason, knownRunIds, source })
     // Nhật ký (ghi sau khi đơn đã chuyển trạng thái; mất nhật ký không làm sai trạng thái đơn)
     const o = outcome.order, rd = outcome.rd;
     const pend = []; const ctx = { set: (c, i, d) => pend.push([c, i, d]) };
-    amgFlowAudit(ctx, "order_complete", `Hoàn thành đơn ${o.id} (${o.customer || ""} / ${o.spec || ""}) — thành phẩm ${fmtNum(rd.finished)}/${fmtNum(rd.qty)} ${amgOrderUnit(o)}${outcome.short ? " — THIẾU SỐ LƯỢNG: " + (o.completionNote || "") : ""}`, o.id, { mode: "manual", source: source || "plan" });
+    amgFlowAudit(ctx, "order_complete", `Hoàn thành đơn ${o.customer || ""} / ${o.spec || ""} — thành phẩm ${fmtNum(rd.finished)}/${fmtNum(rd.qty)} ${amgOrderUnit(o)}${outcome.short ? " — THIẾU SỐ LƯỢNG: " + (o.completionNote || "") : ""}`, o.id, { mode: "manual", source: source || "plan" });
     const b = dbx.batch(); pend.forEach(([c, i, d]) => b.set(dbx.collection(c).doc(i), d)); await b.commit();
     return { order: o, retries: res.retries };
   });
@@ -474,7 +474,7 @@ async function amgFlowReopenOrderCas({ orderId, reason }) {
     });
     const o = outcome;
     const pend = []; const ctx = { set: (c, i, d) => pend.push([c, i, d]) };
-    amgFlowAudit(ctx, "order_reopen", `Mở lại đơn ${o.id} (${o.customer || ""} / ${o.spec || ""}). Lý do: ${why}`, o.id, { reason: why });
+    amgFlowAudit(ctx, "order_reopen", `Mở lại đơn ${o.customer || ""} / ${o.spec || ""}. Lý do: ${why}`, o.id, { reason: why });
     const b = dbx.batch(); pend.forEach(([c, i, d]) => b.set(dbx.collection(c).doc(i), d)); await b.commit();
     return { order: o, retries: res.retries };
   });
@@ -505,7 +505,7 @@ async function amgFlowCompleteOrderTx({ orderId, reason, knownRunIds }) {
     const summary = { finished: rd.finished, qty: rd.qty, unit: amgOrderUnit(order), short, route: rd.route };
     const history = (order.statusHistory || []).concat([{ at: now, by: who, action: "complete", mode: "manual", reason: why, short, finished: rd.finished, qty: rd.qty }]);
     ctx.set(FS.orders, order.id, amgFlowBump(order, { status: "completed", completedAt: now, completedBy: who, completionMode: "manual", completionNote: why, completedShort: short, completionSummary: summary, openRunIds: [], statusHistory: history }), true);
-    amgFlowAudit(ctx, "order_complete", `Xác nhận hoàn thành đơn ${order.id} (${order.customer || ""} / ${order.spec || ""}) — thành phẩm ${fmtNum(rd.finished)}/${fmtNum(rd.qty)} ${amgOrderUnit(order)}${short ? " — THIẾU SỐ LƯỢNG: " + why : ""}`, order.id, { mode: "manual" });
+    amgFlowAudit(ctx, "order_complete", `Xác nhận hoàn thành đơn ${order.customer || ""} / ${order.spec || ""} — thành phẩm ${fmtNum(rd.finished)}/${fmtNum(rd.qty)} ${amgOrderUnit(order)}${short ? " — THIẾU SỐ LƯỢNG: " + why : ""}`, order.id, { mode: "manual" });
     return { order };
   });
 }
@@ -525,7 +525,7 @@ async function amgFlowReopenOrderTx({ orderId, reason }) {
     // BOM, định mức, lệnh, sản lượng KHÔNG bị đụng tới: đơn quay lại các danh sách đang hoạt động cùng toàn bộ dữ liệu cũ
     const history = (order.statusHistory || []).concat([{ at: now, by: amgWho(), action: "reopen", reason: why, completedAt: order.completedAt || null, completedBy: order.completedBy || null, completionMode: order.completionMode || null, completionNote: order.completionNote || "" }]);
     ctx.set(FS.orders, order.id, amgFlowBump(order, { status: "reopened", lastCompletedAt: order.completedAt || null, lastCompletedBy: order.completedBy || null, lastCompletionSummary: order.completionSummary || null, completedAt: null, completedBy: null, completionMode: null, completionNote: "", completedShort: false, completionSummary: null, stageComplete: sc, statusHistory: history }), true);
-    amgFlowAudit(ctx, "order_reopen", `Mở lại đơn ${order.id} (${order.customer || ""} / ${order.spec || ""}). Lý do: ${why}`, order.id, { reason: why });
+    amgFlowAudit(ctx, "order_reopen", `Mở lại đơn ${order.customer || ""} / ${order.spec || ""}. Lý do: ${why}`, order.id, { reason: why });
     return { order };
   });
 }
@@ -600,12 +600,12 @@ async function amgFlowForceDeleteOrder({ orderId, reason, allRuns }) {
   amgFlowRequire("force_delete", "xóa đơn đang sản xuất (chỉ Admin)");
   const why = String(reason || "").trim();
   if (why.length < 3) throw new Error("Vui lòng ghi lý do xóa đơn");
-  if (!orderId) throw new Error("Thiếu mã đơn");
+  if (!orderId) throw new Error("Thiếu đơn cần xóa");
   const dbx = window.__db;
   return amgFlowTx(async ctx => {
     const order = await ctx.get(FS.orders, orderId);
     if (!order) return { missing: true, orderId };
-    if (order.status === "completed") throw new Error(`Đơn ${orderId} đã hoàn thành (dữ liệu lưu trữ). Hãy mở lại đơn trước khi xóa.`);
+    // v54: Admin được xóa cả đơn đã hoàn thành (hộp xác nhận mạnh + lý do + nhật ký ở giao diện)
     // Quét lại từ kho dữ liệu (không tin danh sách trên màn hình): mọi lệnh và lượt sản lượng của đơn
     const rcol = await dbx.collection(AMG_FLOW_COLS.runs).get();
     const runs = rcol.docs.map(d => amgNormalizeRun(Object.assign({ id: d.id }, d.data()))).filter(r => r.orderId === orderId);
@@ -638,7 +638,7 @@ async function amgFlowForceDeleteOrder({ orderId, reason, allRuns }) {
     const prog = typeof orderProgress === "function" ? orderProgress(normalizeOrderStages(order)) : null;
     const liveRuns = runs.filter(amgRunIsLive).length;
     amgFlowAudit(ctx, "order_force_delete",
-      `Admin xóa đơn ${order.customer || orderId} / ${order.spec || ""} (mã ${orderId}) — lý do: ${why}. Đã xóa: ${runs.length} lệnh máy (${liveRuns} đang mở), ${entries.length} lượt sản lượng${prog ? `, thành phẩm ${fmtNum(prog.completedQty)}/${fmtNum(order.quantity)} ${amgOrderUnit(order)}` : ""}${released.length ? `; giải phóng máy ${released.join(", ")}` : ""}.`,
+      `Admin xóa đơn ${order.customer || orderId} / ${order.spec || ""} — lý do: ${why}. Đã xóa: ${runs.length} lệnh máy (${liveRuns} đang mở), ${entries.length} lượt sản lượng${prog ? `, thành phẩm ${fmtNum(prog.completedQty)}/${fmtNum(order.quantity)} ${amgOrderUnit(order)}` : ""}${released.length ? `; giải phóng máy ${released.join(", ")}` : ""}.`,
       orderId, { reason: why, runCount: runs.length, liveRunCount: liveRuns, entryCount: entries.length, machineIds: released, customer: order.customer || "", spec: order.spec || "", quantity: Number(order.quantity) || 0, completedQty: prog ? prog.completedQty : 0 });
     return { deleted: true, orderId, runs: runs.length, liveRuns, entries: entries.length, machines: released };
   });

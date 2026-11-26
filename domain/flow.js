@@ -373,7 +373,7 @@ function amgValidateOutput({ order, run, machine, qty, orderId, machineId, stage
   if (!run) { errors.push("Không tìm thấy lệnh sản xuất"); return { errors, warnings }; }
   if (!amgRunHasRefs(run)) { errors.push("Lệnh thiếu thông tin đơn/máy/công đoạn — không ghi sản lượng được"); return { errors, warnings }; }
   if (!order) { errors.push("Không tìm thấy đơn hàng của lệnh này"); return { errors, warnings }; }
-  if (orderId && run.orderId !== orderId) errors.push("Sai đơn: lệnh này thuộc đơn " + run.orderId);
+  if (orderId && run.orderId !== orderId) errors.push("Sai đơn: lệnh này thuộc đơn " + amgOrderLabelById(run.orderId));
   if (machineId && run.machineId !== machineId) errors.push("Sai máy: lệnh này chạy trên máy " + run.machineId);
   if (stageKey && run.stageKey !== stageKey) errors.push("Sai công đoạn: lệnh này thuộc công đoạn " + amgStageLabel(run.stageKey));
   if (order.status === "completed") errors.push("Đơn đã hoàn thành — mở lại đơn nếu cần ghi thêm sản lượng");
@@ -508,9 +508,9 @@ function amgRunIssues(rawRuns, orders, machines) {
     if (r._statusInferred) push("status_missing", "info", r, `Lệnh ${r.id} (máy ${r.machineId}) thiếu productionStatus — hệ thống đang suy ra "${amgRunStatusMeta(r.productionStatus).label}" từ thời gian bắt đầu/kết thúc.`);
     if (!amgIsOpenRun(r)) return;
     const o = orderById[r.orderId], m = machineById[r.machineId];
-    if (o && o.status === "completed") push("run_on_completed_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${r.orderId} đã ở trạng thái HOÀN THÀNH. Kết thúc lệnh để giải phóng máy (đơn hoàn thành không được còn lệnh mở).`, "close");
-    if (!o) push("orphan_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${r.orderId} không còn tồn tại.`, "close");
-    else if (amgOrderRoute(o).indexOf(r.stageKey) < 0) push("stage_not_in_route", "warn", r, `Lệnh ${r.id} (máy ${r.machineId}) thuộc công đoạn ${amgStageLabel(r.stageKey)} nhưng quy trình đơn ${r.orderId} không có công đoạn này.`);
+    if (o && o.status === "completed") push("run_on_completed_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${amgOrderLabelById(r.orderId)} đã ở trạng thái HOÀN THÀNH. Kết thúc lệnh để giải phóng máy (đơn hoàn thành không được còn lệnh mở).`, "close");
+    if (!o) push("orphan_order", "error", r, `Lệnh ${r.id} đang mở trên máy ${r.machineId} nhưng đơn ${amgOrderLabelById(r.orderId)} không còn tồn tại.`, "close");
+    else if (amgOrderRoute(o).indexOf(r.stageKey) < 0) push("stage_not_in_route", "warn", r, `Lệnh ${r.id} (máy ${r.machineId}) thuộc công đoạn ${amgStageLabel(r.stageKey)} nhưng quy trình đơn ${amgOrderLabelById(r.orderId)} không có công đoạn này.`);
     if (!m) push("unknown_machine", "error", r, `Lệnh ${r.id} gắn với mã máy "${r.machineId}" không có trong danh mục máy.`, "cancel");
     else if (amgMachineStage(m) && amgMachineStage(m) !== r.stageKey) push("machine_stage_mismatch", "warn", r, `Máy ${m.id} thuộc công đoạn ${amgStageLabel(amgMachineStage(m))} nhưng lệnh ${r.id} là công đoạn ${amgStageLabel(r.stageKey)}.`);
   });
@@ -521,7 +521,7 @@ function amgRunIssues(rawRuns, orders, machines) {
     if (list.length > 1) {
       const keyOf = r => r.orderId + "|" + r.stageKey;
       const dup = list.some((r, i) => list.findIndex(x => keyOf(x) === keyOf(r)) !== i);
-      push(dup ? "duplicate_run" : "machine_conflict", "error", list[0], `${dup ? "Lệnh trùng" : "Máy có nhiều lệnh mở"}: máy ${mid} đang giữ ${list.length} lệnh (${list.map(r => r.id + " · " + r.orderId + " · " + amgRunStatusMeta(r.productionStatus).label).join("; ")}). Chỉ giữ một lệnh, các lệnh còn lại cần kết thúc/hủy.`, "keep-one");
+      push(dup ? "duplicate_run" : "machine_conflict", "error", list[0], `${dup ? "Lệnh trùng" : "Máy có nhiều lệnh mở"}: máy ${mid} đang giữ ${list.length} lệnh (${list.map(r => r.id + " · " + amgOrderLabelById(r.orderId) + " · " + amgRunStatusMeta(r.productionStatus).label).join("; ")}). Chỉ giữ một lệnh, các lệnh còn lại cần kết thúc/hủy.`, "keep-one");
       if (list.filter(r => r.productionStatus === "running").length > 1) push("two_running", "error", list[0], `Máy ${mid} có hơn một lệnh ĐANG CHẠY cùng lúc.`);
     }
     const m = machineById[mid], keep = list[0];

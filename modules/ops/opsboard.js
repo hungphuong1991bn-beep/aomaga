@@ -20,7 +20,7 @@ function OpsLiveBoard({ orders, machines, runs, entries, extra, currentUser, onN
   const K = L.kpi, big = tv ? 1.3 : 1;
   const sq = amgSearchNorm(q);
   const cards = L.cards.filter(c => (fState === "all" || c.state === fState) && (fStage === "all" || c.stageKey === fStage) &&
-    (!sq || amgSearchNorm([c.id, c.name, c.run && c.run.orderId, c.order && c.order.customer, c.order && c.order.spec, c.run && c.run.operator].join(" ")).indexOf(sq) > -1) &&
+    (!sq || amgSearchNorm([c.id, c.name, c.order && c.order.customer, c.order && c.order.spec, c.run && c.run.operator].join(" ")).indexOf(sq) > -1) &&
     (!tv || c.state !== "idle"));
   const stCount = s => (s === "all" ? L.cards.length : L.cards.filter(c => c.state === s).length);
   const rateTxt = Object.keys(L.rate).filter(u => L.rate[u] !== null).map(u => `${L.rate[u]}% (${u})`).join(" · ") || "—";
@@ -28,9 +28,9 @@ function OpsLiveBoard({ orders, machines, runs, entries, extra, currentUser, onN
     if (busy.current[order.id]) return; busy.current[order.id] = true;
     try {
       const r = await amgCompleteOrderOneStep(order, runs, { source: "dieuhanh" });
-      if (r.status === "blocked") { await showAlert(r.blockers.join("\n"), { title: "Chưa hoàn thành được đơn " + order.id }); return; }
+      if (r.status === "blocked") { await showAlert(r.blockers.join("\n"), { title: "Chưa hoàn thành được đơn " + amgOrderLabel(order) }); return; }
       if (r.status === "need_reason") { setModal({ kind: "complete", orderId: order.id }); return; }
-      setToast({ msg: r.status === "duplicate" ? `Đơn ${order.id} đã được hoàn thành trước đó` : `Đơn ${order.id} đã hoàn thành và chuyển sang Đơn hàng hoàn thành`, id: order.id });
+      setToast({ msg: r.status === "duplicate" ? `Đơn ${amgOrderLabel(order)} đã được hoàn thành trước đó` : `Đơn ${amgOrderLabel(order)} đã hoàn thành và chuyển sang Đơn hàng hoàn thành`, id: order.id });
       setTimeout(() => setToast(null), 12000);
     } catch (e) { await showAlert(e.message || String(e), { title: "Không hoàn thành được đơn" }); }
     finally { delete busy.current[order.id]; }
@@ -51,7 +51,7 @@ function OpsLiveBoard({ orders, machines, runs, entries, extra, currentUser, onN
     tile("Đơn quá hạn", K.overdue, K.overdue ? COLORS.red : COLORS.textFaint));
   const chip = (f) => rkh("button", { key: f.key, type: "button", className: "mes-chip" + (fState === f.key ? " is-on" : ""), "aria-pressed": fState === f.key, onClick: () => setFState(f.key), style: { padding: "6px 12px", borderRadius: 999, border: `1px solid ${fState === f.key ? COLORS.copper : COLORS.border}`, background: fState === f.key ? COLORS.copper + "18" : COLORS.bgPanel, color: fState === f.key ? COLORS.copper : COLORS.textDim, fontWeight: 700, fontSize: FZ(12.5), cursor: "pointer" } }, `${f.label} (${stCount(f.key)})`);
   const quick = c => !tv && rkh("div", { className: "mes-no-print amg-ops-quick", style: { display: "flex", gap: 6, flexWrap: "wrap", padding: "0 14px 12px", marginTop: -6 } },
-    c.run && c.order && can.plan && rkh(Button, { size: "sm", variant: "ghost", onClick: () => go("machines", { screen: "plan", q: c.run.orderId }) }, "Mở kế hoạch"),
+    c.run && c.order && can.plan && rkh(Button, { size: "sm", variant: "ghost", onClick: () => go("machines", { screen: "plan", orderId: c.run.orderId }) }, "Mở kế hoạch"),
     !c.run && can.plan && c.state !== "broken" && c.state !== "maintenance" && rkh(Button, { size: "sm", variant: "primary", onClick: () => go("machines", { screen: "monitor", assign: { machineId: c.id } }) }, "Phân máy"),
     c.run && rkh(Button, { size: "sm", variant: "ghost", onClick: () => go("machines", { screen: "monitor", q: c.id }) }, "Xem lệnh đang chạy"),
     c.run && can.output && c.run.productionStatus === "running" && rkh(Button, { size: "sm", variant: "primary", onClick: () => go("machines", { screen: "monitor", output: c.run.id }) }, "Ghi sản lượng"),
@@ -70,11 +70,10 @@ function OpsLiveBoard({ orders, machines, runs, entries, extra, currentUser, onN
     rkh("div", { style: { padding: "12px 14px", fontWeight: 800, fontSize: FZ(14 * big) } }, `Theo dõi đơn hàng đang sản xuất (${L.orderRows.length})`),
     L.orderRows.length === 0 ? rkh("div", { style: { padding: "0 14px 14px", color: COLORS.textDim } }, "Chưa có đơn nào đang sản xuất.") :
       rkh("div", { style: { overflowX: "auto" } }, rkh("table", { className: "mes-table", style: { width: "100%", borderCollapse: "collapse", minWidth: 860 } },
-        rkh("thead", null, rkh("tr", null, ["Mã đơn", "Khách hàng", "Quy cách", "Công đoạn hiện tại", "Máy đang chạy", "Tiến độ", "Hạn giao", "Trạng thái", tv ? null : "Thao tác"].filter(Boolean).map(h => rkh("th", { key: h, style: th }, h)))),
+        rkh("thead", null, rkh("tr", null, ["Khách hàng", "Quy cách", "Công đoạn hiện tại", "Máy đang chạy", "Tiến độ", "Hạn giao", "Trạng thái", tv ? null : "Thao tác"].filter(Boolean).map(h => rkh("th", { key: h, style: th }, h)))),
         rkh("tbody", null, L.orderRows.map(r => { const o = r.order, pb = r.plan, bm = amgBucketMeta(pb.bucket), pr = amgPriorityMeta(o.priority);
           return rkh("tr", { key: o.id, "data-order": o.id, onClick: tv ? undefined : () => go("orders", { orderId: o.id }), style: { cursor: tv ? "default" : "pointer" } },
-            rkh("td", { style: td, className: "mes-mono" }, rkh("b", null, o.id), o.priority && o.priority !== "normal" ? rkh("span", { style: { marginLeft: 6, fontSize: FZ(11), fontWeight: 800, color: pr.color } }, pr.label) : null),
-            rkh("td", { style: td }, o.customer || "—"), rkh("td", { style: td }, String(o.spec == null ? "—" : o.spec)),
+            rkh("td", { style: td }, rkh("b", null, o.customer || "—"), o.priority && o.priority !== "normal" ? rkh("span", { style: { marginLeft: 6, fontSize: FZ(11), fontWeight: 800, color: pr.color } }, pr.label) : null), rkh("td", { style: td }, String(o.spec == null ? "—" : o.spec)),
             rkh("td", { style: td }, pb.stageKey ? amgStageLabel(pb.stageKey) : "—"),
             rkh("td", { style: td, className: "mes-mono" }, r.machines.join(", ") || "—"),
             rkh("td", { style: Object.assign({ minWidth: 120 }, td) }, rkh("div", { style: { height: 8, borderRadius: 6, background: COLORS.bgInset, overflow: "hidden" } }, rkh("div", { style: { width: Math.min(100, r.progress || 0) + "%", height: "100%", background: COLORS.green } })), rkh("div", { style: { fontSize: FZ(11.5), color: COLORS.textDim, marginTop: 2 } }, r.progress === null ? "—" : r.progress + "%")),

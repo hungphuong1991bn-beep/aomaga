@@ -23,7 +23,7 @@ function amgOperatorOptions(staff, stageKey) {
   return (staff || []).filter(s => s && s.name && (!team || s.team === team)).map(s => s.name);
 }
 function amgSummaryRows(order, extraRows) {
-  const rows = [["Mã đơn", order.id], ["Khách hàng", order.customer || "—"], ["Nguyên liệu", order.materialCode || "—"], ["Quy cách", order.spec || "—"], ["Số lượng đặt", fmtNum(order.quantity) + " " + amgOrderUnit(order)]].concat(extraRows || []);
+  const rows = [["Khách hàng", order.customer || "—"], ["Nguyên liệu", order.materialCode || "—"], ["Quy cách", order.spec || "—"], ["Số lượng đặt", fmtNum(order.quantity) + " " + amgOrderUnit(order)]].concat(extraRows || []);
   return rkh("div", { style: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8, padding: 10, borderRadius: 10, background: COLORS.bgInset, border: `1px solid ${COLORS.border}`, marginBottom: 12 } },
     rows.map(([a, b]) => rkh("div", { key: a }, rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint, fontWeight: 600 } }, a), rkh("div", { style: { fontSize: FZ(14), fontWeight: 700, color: COLORS.text, wordBreak: "break-word" } }, b))));
 }
@@ -127,7 +127,7 @@ function AssignModal({ order: orderProp, orders, machines, runs, staff, fixedMac
     setBusy(true); setError("");
     try {
       const res = await amgFlowAssign({ runId: keyRef.current, orderId: order.id, machineId, stageKey, plannedQuantity: planned, shift, operator, team: amgTeamOfStage(stageKey), note, startNow, knownMachineRunIds: amgOpenRunsOfMachine(runs, machineId).map(r => r.id) });
-      onDone(res.duplicate ? `Lệnh ${res.run.id} đã được ghi nhận trước đó` : `Đã phân đơn ${order.id} vào máy ${machineId}${startNow ? " và bắt đầu chạy" : ""}`, res.run, !startNow && !res.duplicate);
+      onDone(res.duplicate ? `Lệnh ${res.run.id} đã được ghi nhận trước đó` : `Đã phân đơn ${amgOrderLabel(order)} vào máy ${machineId}${startNow ? " và bắt đầu chạy" : ""}`, res.run, !startNow && !res.duplicate);
       onClose();
     } catch (e) { setError(e.message || String(e)); setBusy(false); }
   }
@@ -141,8 +141,8 @@ function AssignModal({ order: orderProp, orders, machines, runs, staff, fixedMac
     hint: stageOrders.eligible.length === 0 ? (stageKey ? "Chưa có đơn nào đủ điều kiện ở công đoạn này. Đơn chỉ hiện khi công đoạn nằm trong quy trình đã xác nhận của đơn." : "") : `${stageOrders.eligible.length} đơn đủ điều kiện${stageOrders.waiting.length ? ` · ${stageOrders.waiting.length} đơn đang chờ công đoạn trước` : ""}. Đơn đã hoàn thành công đoạn này hoặc không có công đoạn này trong quy trình sẽ không hiện.` },
     rkh("select", { className: "mes-input", value: orderId, onChange: e => { setOrderId(e.target.value); setTouched(false); } },
       rkh("option", { value: "" }, "— Chọn đơn hàng —"),
-      stageOrders.eligible.map(o => rkh("option", { key: o.id, value: o.id }, `${o.id} · ${o.customer || ""} · ${o.spec || ""} · ${fmtNum(o.quantity)} ${amgOrderUnit(o)}${o.priority && o.priority !== "normal" ? " · " + amgPriorityMeta(o.priority).label : ""}`)),
-      stageOrders.waiting.map(w => rkh("option", { key: w.order.id, value: "", disabled: true }, `${w.order.id} · ${w.order.customer || ""} — chờ: ${w.reason}`))));
+      stageOrders.eligible.map(o => rkh("option", { key: o.id, value: o.id }, `${o.customer || ""} · ${o.spec || ""} · ${fmtNum(o.quantity)} ${amgOrderUnit(o)}${o.priority && o.priority !== "normal" ? " · " + amgPriorityMeta(o.priority).label : ""}`)),
+      stageOrders.waiting.map(w => rkh("option", { key: w.order.id, value: "", disabled: true }, `${amgOrderLabel(w.order)} — chờ: ${w.reason}`))));
 
   const machineSection = stageKey && rkh(AmgFieldBox, { key: "ms", label: fixedMachine ? "Máy" : `Chọn máy — nhóm ${amgStageLabel(stageKey)} (${stageMachines.length} máy)`, hint: fixedMachine ? "" : "Chỉ hiện máy thuộc công đoạn đã chọn. Máy hỏng, bảo trì hoặc đang giữ lệnh khác bị khóa." },
     rkh("div", { style: { maxHeight: 250, overflowY: "auto", padding: 10, border: `1px solid ${COLORS.border}`, borderRadius: 10, background: COLORS.bgInset } },
@@ -160,7 +160,7 @@ function AssignModal({ order: orderProp, orders, machines, runs, staff, fixedMac
             })));
         })));
 
-  const title = mode === "machine" ? `Phân lệnh cho máy ${fixedMachine.id}` : mode === "order" ? `Phân máy · ${order ? order.id : ""}` : "Phân lệnh sản xuất";
+  const title = mode === "machine" ? `Phân lệnh cho máy ${fixedMachine.id}` : mode === "order" ? `Phân máy · ${order ? amgOrderLabel(order) : ""}` : "Phân lệnh sản xuất";
   return rkh(Modal, { title, onClose, width: 780 },
     mode === "wizard" && stepTitle(1, "Chọn công đoạn"),
     mode === "wizard" && rkh("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } }, stagesWithMachines.map(s => pillBtn(s.key, stageKey === s.key, { ok: true }, s.label))),
@@ -203,7 +203,7 @@ function StartConfirmModal({ run, orders, onClose, onDone }) {
   const [error, setError] = useState("");
   async function go() {
     if (busy) return; setBusy(true); setError("");
-    try { const r = await amgFlowStart(run.id); onDone(r.duplicate ? "Máy đã chạy từ trước" : `Đã bắt đầu chạy máy ${run.machineId} — ${run.orderId}`); onClose(); } catch (e) { setError(e.message || String(e)); setBusy(false); }
+    try { const r = await amgFlowStart(run.id); onDone(r.duplicate ? "Máy đã chạy từ trước" : `Đã bắt đầu chạy máy ${run.machineId} — ${amgOrderLabelById(run.orderId)}`); onClose(); } catch (e) { setError(e.message || String(e)); setBusy(false); }
   }
   return rkh(Modal, { title: `Xác nhận bắt đầu chạy · máy ${run.machineId}`, onClose, width: 520 },
     rkh(AmgNotice, { tone: "info" }, "Lệnh đã được lưu (ĐÃ PHÂN MÁY). Bấm xác nhận khi máy thật sự bắt đầu chạy — hệ thống ghi thời gian bắt đầu và chuyển máy sang ĐANG CHẠY trên mọi thiết bị."),
@@ -221,7 +221,7 @@ function RunDetailModal({ run, orders, entries, onClose }) {
   const t = amgRunTiming(run, now, order), u = t.unit;
   const list = (entries || []).filter(e => e.runId === run.id).sort((a, b) => String(b.enteredAt || "").localeCompare(String(a.enteredAt || "")));
   const sumQty = list.filter(e => !e.voided).reduce((s, e) => s + (Number(e.qty) || 0), 0);
-  return rkh(Modal, { title: `Lệnh ${run.machineId} · ${run.orderId}`, onClose, width: 820 },
+  return rkh(Modal, { title: `Lệnh ${run.machineId} · ${amgOrderLabelById(run.orderId)}`, onClose, width: 820 },
     rkh("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 10 } }, rkh(Badge, { color: sm.color }, sm.label), rkh(Badge, { color: amgStageColor(run.stageKey) }, amgStageLabel(run.stageKey)),
       rkh("span", { style: { fontSize: FZ(13), color: COLORS.textDim } }, `${oi.customer || "—"} · ${oi.spec || "—"} · NL ${oi.materialCode || "—"}`),
       rkh("span", { className: "mes-mono", style: { marginLeft: "auto", fontSize: FZ(26), fontWeight: 800, color: run.productionStatus === "running" ? COLORS.green : COLORS.text } }, t.startedAt ? amgClock(t.netMs) : "—:--")),
@@ -259,7 +259,7 @@ function OutputModal({ run, orders, machines, entries, onClose, onDone }) {
     setBusy(true); setError("");
     try {
       const res = await amgFlowRecordOutput({ clientKey: keyRef.current, runId: run.id, orderId: run.orderId, machineId: run.machineId, stageKey: run.stageKey, qty: q, ng, note, confirmWarnings: !!confirmed });
-      onDone(res.duplicate ? "Lượt ghi này đã được lưu trước đó — không ghi trùng" : `Đã ghi ${fmtNum(q)} ${unit} · ${amgStageLabel(run.stageKey)} đơn ${run.orderId} = ${fmtNum(res.stageDone)}`);
+      onDone(res.duplicate ? "Lượt ghi này đã được lưu trước đó — không ghi trùng" : `Đã ghi ${fmtNum(q)} ${unit} · ${amgStageLabel(run.stageKey)} đơn ${amgOrderLabelById(run.orderId)} = ${fmtNum(res.stageDone)}`);
       onClose();
     } catch (e) {
       if (e.code === "needs-confirm") {
@@ -333,7 +333,7 @@ function FinishRunModal({ run, orders, runs, onClose, onDone }) {
       const res = await amgFlowFinishRun({ runId: run.id, completeStage, shortReason, note, knownSiblingRunIds: siblings.map(r => r.id) });
       let msg = `Đã kết thúc lệnh ${run.id} — máy ${run.machineId} đã được giải phóng, lịch sử sản xuất được giữ nguyên.`;
       if (res.stageCompleted && next) msg += ` Đã hoàn thành công đoạn ${amgStageLabel(run.stageKey)}; đơn chuyển sang công đoạn ${amgStageLabel(next)} — hãy phân máy.`;
-      else if (res.readyToComplete) msg += ` Đã hoàn thành công đoạn cuối: đơn ${run.orderId} đủ điều kiện — bấm HOÀN THÀNH ĐƠN tại Kế hoạch sản xuất khi muốn đóng đơn.`;
+      else if (res.readyToComplete) msg += ` Đã hoàn thành công đoạn cuối: đơn ${amgOrderLabelById(run.orderId)} đủ điều kiện — bấm HOÀN THÀNH ĐƠN tại Kế hoạch sản xuất khi muốn đóng đơn.`;
       else if (res.stageCompleted) msg += ` Đã hoàn thành công đoạn ${amgStageLabel(run.stageKey)}.`;
       onDone(msg, res); onClose();
     } catch (e) { setError(e.message || String(e)); setBusy(false); }
@@ -376,7 +376,6 @@ function CancelRunModal({ run, onClose, onDone }) {
 function MachineHistoryModal({ machine, runs, orders, entries, onClose }) {
   const list = amgSortRunsDesc(runs.filter(r => r.machineId === machine.id));
   const cols = [
-    { key: "orderId", label: "Mã đơn" },
     { key: "customer", label: "Khách hàng", export: r => amgRunOrderInfo(r, orders).customer },
     { key: "spec", label: "Quy cách", export: r => amgRunOrderInfo(r, orders).spec },
     { key: "stage", label: "Công đoạn", export: r => amgStageLabel(r.stageKey) },
@@ -392,11 +391,10 @@ function MachineHistoryModal({ machine, runs, orders, entries, onClose }) {
     rkh("div", { className: "mes-no-print", style: { marginBottom: 10 } }, rkh(Button, { size: "sm", disabled: list.length === 0, onClick: () => amgExportExcel("lich-su-may-" + machine.id, cols, list, "Lịch sử máy") }, rkh(Download, { size: 13 }), " Xuất Excel")),
     list.length === 0 ? rkh("div", { style: { padding: 18, color: COLORS.textFaint, fontSize: FZ(13) } }, "Máy này chưa từng được phân lệnh.") :
       rkh("div", { style: { overflowX: "auto" } }, rkh("table", { className: "mes-table", style: { minWidth: 760 } },
-        rkh("thead", null, rkh("tr", null, ["Đơn", "Khách hàng / quy cách", "Công đoạn", "Đã sản xuất / KH", "Người vận hành · ca", "Thời gian", "Trạng thái"].map(h => rkh("th", { key: h }, h)))),
+        rkh("thead", null, rkh("tr", null, ["Khách hàng / quy cách", "Công đoạn", "Đã sản xuất / KH", "Người vận hành · ca", "Thời gian", "Trạng thái"].map(h => rkh("th", { key: h }, h)))),
         rkh("tbody", null, list.map(r => {
           const oi = amgRunOrderInfo(r, orders), sm = amgRunStatusMeta(r.productionStatus);
           return rkh("tr", { key: r.id },
-            rkh("td", { className: "mes-mono", style: { fontWeight: 700 } }, r.orderId),
             rkh("td", null, rkh("div", { style: { fontWeight: 600 } }, oi.customer || "—"), rkh("div", { style: { fontSize: FZ(12), color: COLORS.textFaint } }, oi.spec || "")),
             rkh("td", null, rkh(Badge, { color: amgStageColor(r.stageKey) }, amgStageLabel(r.stageKey))),
             rkh("td", { className: "mes-mono" }, `${fmtNum(r.producedQuantity || 0)} / ${fmtNum(r.plannedQuantity)}`),

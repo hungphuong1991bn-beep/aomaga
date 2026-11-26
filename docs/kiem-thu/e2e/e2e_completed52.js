@@ -4,7 +4,7 @@ const E=boot(); const {w,doc,errs,sleep,A,db,sha,nativeSet,txt,findBtn,click,cli
 let pass=0,fail=0; const ok=(n,c,x)=>{ if(c){pass++;console.log('PASS '+n);} else {fail++;console.log('FAIL '+n+(x!==undefined?' :: '+x:''));} };
 const store=n=>Object.values(w.__db.__store[n]||{}); const ordr=id=>(w.__db.__store.orders||{})[id];
 const modal=()=>doc.querySelector('.mes-modal-card');
-const rowOf=id=>[...doc.querySelectorAll('.amg-row,tr')].find(r=>!/^Mã đơn/.test(txt(r))&&([...r.querySelectorAll('[title]')].some(e=>e.getAttribute('title')===id)||new RegExp(id+'(?![0-9])').test(txt(r))));
+const rowOf=id=>[...doc.querySelectorAll('.amg-row,tr')].find(r=>r.getAttribute('data-order')===id||!/^Mã đơn/.test(txt(r))&&([...r.querySelectorAll('[title]')].some(e=>e.getAttribute('title')===id)||new RegExp(id+'(?![0-9])').test(txt(r))));
 (async()=>{
   await sleep(300);
   JSON.parse(await A('return JSON.stringify(genMachineSeed())')).forEach(m=>db.__seed('machines',m.id,m));
@@ -35,7 +35,7 @@ const rowOf=id=>[...doc.querySelectorAll('.amg-row,tr')].find(r=>!/^Mã đơn/.t
   await clickText(/^Đơn hàng hoàn thành/); await sleep(700); const body=txt(doc.body);
   ok('K0. Không còn khung/nhãn "Chờ xác nhận hoàn thành đơn" ở tab Đơn hàng hoàn thành', !/Chờ xác nhận/i.test(body));
   const hdr=txt(doc.querySelector('thead')||doc.body);
-  ok('K1. Danh sách có đủ cột: STT, mã đơn, khách, quy cách, vật liệu, SL đặt, thành phẩm, tỷ lệ HT, ngày nhận, ngày giao, hoàn thành, thời gian SX, máy, người hoàn thành, trạng thái', ['STT','Mã đơn','Khách hàng','Quy cách','Nguyên liệu','SL đặt','Thành phẩm','Tỷ lệ HT','Ngày nhận','Ngày giao','Hoàn thành','Thời gian SX','Máy','Người hoàn thành','Trạng thái'].every(c=>hdr.includes(c)), hdr);
+  ok('K1. Danh sách có đủ cột: STT, khách, quy cách, vật liệu, SL đặt, thành phẩm, tỷ lệ HT, ngày nhận, ngày giao, hoàn thành, thời gian SX, máy, người hoàn thành, trạng thái', ['STT','Khách hàng','Quy cách','Nguyên liệu','SL đặt','Thành phẩm','Tỷ lệ HT','Ngày nhận','Ngày giao','Hoàn thành','Thời gian SX','Máy','Người hoàn thành','Trạng thái'].every(c=>hdr.includes(c)), hdr);
   const r1=txt(rowOf('CP-1'));
   ok('K2. Dòng CP-1: cả hai máy tham gia, 100%, người hoàn thành, trạng thái đủ SL', /KTI-01, KTI-02/.test(r1)&&/100%/.test(r1)&&/Quản trị/.test(r1)&&/đủ SL/i.test(r1), r1.slice(0,300));
   ok('K3. Dòng CP-2: 60%, thiếu SL', /60%/.test(txt(rowOf('CP-2')))&&/thiếu SL/i.test(txt(rowOf('CP-2'))));
@@ -73,6 +73,19 @@ const rowOf=id=>[...doc.querySelectorAll('.amg-row,tr')].find(r=>!/^Mã đơn/.t
   const E2=boot({server:w.__server}); await E2.sleep(900);
   const st=await E2.A('const s=await db.collection(FS.orders).doc("CP-2").get();return JSON.stringify({st:s.data().status,act:amgIsActiveOrder(s.data())})'); const j=JSON.parse(st);
   ok('F5. Tải lại (thiết bị mới): CP-2 vẫn completed, không quay lại danh sách hoạt động', j.st==='completed'&&j.act===false, st);
+  // v54 — bỏ mã đơn + Admin xóa đơn hoàn thành ngay tại tab Đơn hàng hoàn thành (gõ XOA, bắt buộc lý do)
+  await clickText(/^Đơn hàng hoàn thành/); await sleep(700);
+  const bodyTxt=txt(doc.body);
+  ok('V54-1. Tab Đơn hàng hoàn thành không hiện mã đơn (cột và nội dung)', !/Mã đơn/.test(txt(doc.querySelector('thead')||doc.body))&&!/CP-2/.test(txt(rowOf('CP-2')||doc.body)), txt(rowOf('CP-2')||doc.body).slice(0,120));
+  const delB=doc.querySelector('tr[data-order="CP-2"] [data-testid="completed-del"]'); ok('V54-2. Admin thấy nút xóa ở dòng đơn hoàn thành', !!delB); await click(delB); await sleep(400);
+  const dm=modal(), dgo=()=>doc.querySelector('[data-testid="force-del-go"]');
+  ok('V54-3. Hộp xóa nêu đơn bằng Khách hàng · Quy cách, yêu cầu gõ XOA, nút khóa', !!dm&&/Khách thiếu SL · 0\.3/.test(txt(dm))&&/Gõ "XOA"/.test(txt(dm))&&dgo()&&dgo().disabled, txt(dm||doc.body).slice(0,200));
+  nativeSet(doc.querySelector('[data-testid="force-del-reason"]'),'Nhập nhầm'); nativeSet(doc.querySelector('[data-testid="force-del-confirm"]'),'xoa'); await sleep(150);
+  ok('V54-4. Lý do + gõ XOA → mở khóa', !dgo().disabled); await click(dgo()); await sleep(1000);
+  ok('V54-5. Đơn hoàn thành CP-2 bị xóa cùng lệnh máy và sản lượng; CP-1 còn nguyên', !ordr('CP-2')&&!store('productionRuns').some(r=>r.orderId==='CP-2')&&!store('productionEntries').some(e=>e.orderId==='CP-2')&&!!ordr('CP-1')&&store('auditLog').some(a=>a.type==='order_force_delete'&&a.targetId==='CP-2'&&!/mã CP-2/.test(a.detail||'')));
+  await clickText(/^Kế hoạch sản xuất/); await sleep(1200);
+  const pr1=doc.querySelector('.pl-row[data-order="CP-1"]');
+  ok('V54-6. Tab Kế hoạch: dòng đơn có 8 cột, hiện Khách hàng + Quy cách, KHÔNG hiện mã đơn', !!pr1&&!/CP-1/.test(txt(pr1))&&/Công ty Hoàn Mỹ/.test(txt(pr1))&&/0\.254BC/.test(txt(pr1))&&!/Mã đơn/.test(txt(doc.querySelector('.pl-hdr')||doc.body)), txt(pr1||doc.body).slice(0,160));
   const real=errs.filter(e=>!/Warning: .*(act|unmounted)/i.test(e)); ok('Z. Không có lỗi console/React', real.length===0, real.slice(0,3).join(' || '));
   console.log(`\n${pass} pass, ${fail} fail`); process.exit(fail?1:0);
 })().catch(e=>{console.log('CRASH',e.stack||e);process.exit(2);});

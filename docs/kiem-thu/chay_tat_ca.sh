@@ -7,9 +7,9 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; export APP_DIR="${APP_DIR:-$(cd "$HERE/../.." && pwd)}"
 export NM="${NM:?Đặt NM=<đường dẫn node_modules chứa jsdom, react, react-dom, xlsx>}"; export NODE_PATH="$NM"
 total_fail=0
-run(){ local dir="$1" f="$2"; ( cd "$HERE/$dir" && timeout 900 node "$f" > "/tmp/amg_$f.out" 2>&1 ); local rc=$?; local line; line="$(grep -E '[0-9]+ pass, [0-9]+ fail' "/tmp/amg_$f.out" | tail -1)"; [ -z "$line" ] && line="(không có dòng tổng kết)"; printf '%-22s rc=%s  %s\n' "$f" "$rc" "$line"; [ $rc -ne 0 ] && total_fail=$((total_fail+1)); }
+run(){ local dir="$1" f="$2"; ( cd "$HERE/$dir" && timeout 900 node "$f" > "/tmp/claude-0/amg_$f.out" 2>&1 ); local rc=$?; local line; line="$(grep -E '[0-9]+ pass, [0-9]+ fail' "/tmp/claude-0/amg_$f.out" | tail -1)"; [ -z "$line" ] && line="(không có dòng tổng kết)"; printf '%-22s rc=%s  %s\n' "$f" "$rc" "$line"; [ $rc -ne 0 ] && total_fail=$((total_fail+1)); }
 run . check_assets.js; run . accept.js; run . accept48.js; run . accept52.js; run . roles.js
 # render.js đọc bản chụp dữ liệu do accept.js ghi (/tmp/db.json) nên phải chạy sau accept.js
-( cd "$HERE" && timeout 300 node render.js > /tmp/amg_render.out 2>&1 ); rc=$?; printf '%-22s rc=%s  %s PASS, %s FAIL\n' render.js $rc "$(grep -c '^PASS' /tmp/amg_render.out)" "$(grep -c '^FAIL' /tmp/amg_render.out)"; [ $rc -ne 0 ] && total_fail=$((total_fail+1))
+( cd "$HERE" && timeout 300 node render.js > /tmp/claude-0/amg_render.out 2>&1 ); rc=$?; printf '%-22s rc=%s  %s PASS, %s FAIL\n' render.js $rc "$(grep -c '^PASS' /tmp/claude-0/amg_render.out)" "$(grep -c '^FAIL' /tmp/claude-0/amg_render.out)"; [ $rc -ne 0 ] && total_fail=$((total_fail+1))
 for f in e2e12.js e2e48.js e2e_bad.js e2e_header52.js e2e_ops52.js e2e_orders52.js e2e_completed52.js e2e_roles52.js; do run e2e "$f"; done
 echo; [ $total_fail -eq 0 ] && echo "TẤT CẢ ĐẠT" || echo "CÓ $total_fail BỘ TEST LỖI"; exit $total_fail

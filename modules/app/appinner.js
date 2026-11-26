@@ -124,6 +124,7 @@ function AppInner() {
   const canEditMachines = amgCan(currentUser, "s", "may");     // cập nhật trạng thái máy: cả Nhân viên
   // Alias dùng trong các handler bên dưới (đơn hàng luôn lấy từ dữ liệu mới nhất qua onSnapshot)
   const baseOrders = data.orders;
+  amgIndexOrders(baseOrders); // v54: tra tên đơn (Khách hàng · Quy cách) theo id ở mọi tab — không hiện mã đơn
   // v48: MỘT nguồn dữ liệu đơn (data.orders, onSnapshot). Danh sách "đang hoạt động" chỉ là bộ lọc status — không xóa/nhân bản đơn.
   const activeOrders = baseOrders.filter(amgIsActiveOrder);
   function audit(type, detail, targetId, extra) {
@@ -309,16 +310,16 @@ function AppInner() {
   async function handleBulkDeleteOrders(ids) {
     if (!ids || ids.length === 0) return;
     const withRuns = ids.filter(id => amgRunsOfOrder(flow.runs, id).length > 0);
-    if (withRuns.length) throw new Error(`${withRuns.length} đơn đã có lệnh máy (${withRuns.slice(0, 5).join(", ")}) nên không thể xóa.`);
+    if (withRuns.length) throw new Error(`${withRuns.length} đơn đã có lệnh máy (${withRuns.slice(0, 5).map(amgOrderLabelById).join(", ")}) nên không thể xóa.`);
     const done = ids.filter(id => { const o = baseOrders.find(x => x.id === id); return o && o.status === "completed"; });
-    if (done.length) throw new Error(`${done.length} đơn đã hoàn thành (${done.slice(0, 5).join(", ")}) nên không xóa để bảo toàn lưu trữ.`);
+    if (done.length) throw new Error(`${done.length} đơn đã hoàn thành (${done.slice(0, 5).map(amgOrderLabelById).join(", ")}) nên không xóa để bảo toàn lưu trữ.`);
     const removed = baseOrders.filter(o => ids.includes(o.id));
     for (let i = 0; i < ids.length; i += 200) { // mỗi lô một lượt ghi nguyên tử
       const batch = db.batch();
       ids.slice(i, i + 200).forEach(id => batch.delete(db.collection(FS.orders).doc(id)));
       await batch.commit();
     }
-    const preview = removed.slice(0, 5).map(o => `${o.customer || o.id}/${o.spec || ""}`).join(", ");
+    const preview = removed.slice(0, 5).map(o => `${o.customer || "—"}/${o.spec || ""}`).join(", ");
     audit("order_delete", `Xóa ${ids.length} đơn hàng cùng lúc: ${preview}${removed.length > 5 ? "…" : ""}`);
   }
   // v53 — CHỈ ADMIN: xóa đơn kể cả đang sản xuất (đã có lệnh máy/sản lượng). Mỗi đơn là một lượt ghi nguyên tử; đơn nào lỗi thì báo riêng, không làm hỏng đơn khác.
@@ -715,7 +716,8 @@ function AppInner() {
     auditLog: data.auditLog,
     extra: extra,
     scrap: data.scrap,
-    currentUser: currentUser
+    currentUser: currentUser,
+    onForceDelete: handleForceDeleteOrders
   }), activeTab === "downtime" && /*#__PURE__*/React.createElement(DowntimeTrackingPage, {
     machines: data.machines,
     isAdmin: isAdmin,

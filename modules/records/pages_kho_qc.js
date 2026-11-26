@@ -88,9 +88,9 @@ function WarehousePage({ extra, orders, auditLog, currentUser }) {
           rkh("div", { style: { fontWeight: 700, margin: "4px 0", fontSize: FZ(13) } }, "Kiểm tra IQC / chất lượng liên quan"),
           ins.length ? ins.map(i => row(`${i.id} · ${i.type} · ${amgFmtDate(i.date)}`, `Kết quả: ${i.result === "dat" ? "Đạt" : "NG"}`)) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có phiếu kiểm tra."),
           rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: FZ(13) } }, "Đơn hàng đã sử dụng lô này"),
-          ords.length ? ords.map(o => row(o, (orders.find(x => x.id === o) || {}).customer || "")) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa xuất cho đơn hàng nào."),
+          ords.length ? ords.map(o => row(amgOrderLabelById(o), "")) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa xuất cho đơn hàng nào."),
           rkh("div", { style: { fontWeight: 700, margin: "12px 0 4px", fontSize: FZ(13) } }, "Lịch sử nhập/xuất"),
-          mv.length ? mv.map(m => row(`${amgFmtDate(m.date)} · ${m.type === "nhap" ? "Nhập" : "Xuất"} ${m.qty}`, m.orderId ? "→ " + m.orderId : (m.note || ""))) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có phiếu nhập/xuất."));
+          mv.length ? mv.map(m => row(`${amgFmtDate(m.date)} · ${m.type === "nhap" ? "Nhập" : "Xuất"} ${m.qty}`, m.orderId ? "→ " + amgOrderLabelById(m.orderId) : (m.note || ""))) : rkh("div", { style: { fontSize: FZ(13), color: COLORS.textDim } }, "Chưa có phiếu nhập/xuất."));
       }
     }]
   };
@@ -108,7 +108,7 @@ function WarehousePage({ extra, orders, auditLog, currentUser }) {
         validate: (v, a) => { const l = lots.find(x => x.id === v); if (!l) return "Lô không tồn tại"; if (a.type === "xuat" && l.status !== "dat") return "Chỉ xuất lô đã đạt IQC (lô này: " + (LOT_STATUS[l.status] || {}).label + ")"; return ""; } },
       { key: "qty", label: "Số lượng", type: "number", min: 0.0001, step: "any", required: true,
         validate: (v, a) => { const l = lots.find(x => x.id === a.lotId); if (!l || a.type !== "xuat") return ""; const own = rec && rec.lotId === l.id && rec.type === "xuat" ? Number(rec.qty) || 0 : 0; return Number(v) > lotRemaining(l, moves) + own ? `Vượt tồn kho (còn ${lotRemaining(l, moves) + own})` : ""; } },
-      { key: "orderId", label: "Đơn hàng sử dụng", type: "select", options: amgOpts(orders, o => o.id, o => `${o.id} – ${o.customer || ""} ${o.spec || ""}`), visible: a => a.type === "xuat" },
+      { key: "orderId", label: "Đơn hàng sử dụng", type: "select", options: amgOpts(orders, o => o.id, o => amgOrderLabel(o)), visible: a => a.type === "xuat" },
       { key: "handler", label: "Người thực hiện", required: true, maxLen: 60 },
       { key: "note", label: "Ghi chú", type: "textarea", wide: true, maxLen: 300 }
     ],
@@ -116,7 +116,7 @@ function WarehousePage({ extra, orders, auditLog, currentUser }) {
       { key: "date", label: "Ngày", render: r => amgFmtDate(r.date), export: r => amgFmtDate(r.date) },
       { key: "type", label: "Loại", render: r => r.type === "nhap" ? "Nhập" : "Xuất", export: r => r.type === "nhap" ? "Nhập" : "Xuất" },
       { key: "lotId", label: "Lô", render: r => { const l = lots.find(x => x.id === r.lotId); return l ? l.lotNo : r.lotId; }, export: r => { const l = lots.find(x => x.id === r.lotId); return l ? l.lotNo : r.lotId; } },
-      { key: "qty", label: "Số lượng", align: "right" }, { key: "orderId", label: "Đơn hàng" }, { key: "handler", label: "Người thực hiện" }
+      { key: "qty", label: "Số lượng", align: "right" }, { key: "orderId", label: "Đơn hàng", render: r => amgOrderLabelById(r.orderId), export: r => amgOrderLabelById(r.orderId) }, { key: "handler", label: "Người thực hiện" }
     ],
     kpis: rows => [{ label: "Phiếu trong tháng", value: rows.filter(r => String(r.date).slice(0, 7) === amgTodayKey().slice(0, 7)).length }, { label: "Xuất trong tháng", value: rows.filter(r => r.type === "xuat" && String(r.date).slice(0, 7) === amgTodayKey().slice(0, 7)).reduce((s, r) => s + (Number(r.qty) || 0), 0).toLocaleString("vi-VN") }]
   };
@@ -166,7 +166,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
       { key: "date", label: "Ngày", type: "date", required: true },
       { key: "time", label: "Giờ (HH:MM)", required: true, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$", patternMsg: "Giờ theo dạng HH:MM, ví dụ 14:30" },
       { key: "shift", label: "Ca", type: "select", required: true, options: AMG_SHIFT_OPTS },
-      { key: "orderId", label: "Đơn hàng", type: "select", options: amgOpts(orders, o => o.id, o => `${o.id} – ${o.customer || ""} ${o.spec || ""}`) },
+      { key: "orderId", label: "Đơn hàng", type: "select", options: amgOpts(orders, o => o.id, o => amgOrderLabel(o)) },
       { key: "lotId", label: "Lô nguyên liệu", type: "select", options: lots.map(l => ({ value: l.id, label: `${l.lotNo || l.id} – ${l.material || ""}` })), visible: a => a.type === "IQC", required: false },
       { key: "material", label: "Vật tư / sản phẩm", maxLen: 80 },
       { key: "stage", label: "Công đoạn", type: "select", options: stageOpts },
@@ -181,7 +181,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
     ]),
     columns: [
       { key: "date", label: "Ngày", render: r => amgFmtDate(r.date) + " " + (r.time || ""), export: r => amgFmtDate(r.date) + " " + (r.time || "") },
-      { key: "type", label: "Loại" }, { key: "orderId", label: "Đơn hàng" }, { key: "stage", label: "Công đoạn", render: r => stageLabel(r.stage), export: r => stageLabel(r.stage) },
+      { key: "type", label: "Loại" }, { key: "orderId", label: "Đơn hàng", render: r => amgOrderLabelById(r.orderId), export: r => amgOrderLabelById(r.orderId) }, { key: "stage", label: "Công đoạn", render: r => stageLabel(r.stage), export: r => stageLabel(r.stage) },
       { key: "machineId", label: "Máy" }, { key: "inspector", label: "Người kiểm" },
       { key: "result", label: "Kết quả", render: r => rkh(Badge, { color: r.result === "dat" ? COLORS.green : COLORS.copper }, r.result === "dat" ? "Đạt" : "NG"), export: r => r.result === "dat" ? "Đạt" : "NG" }
     ],
@@ -221,7 +221,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
       { key: "defect", label: "Mô tả lỗi", required: true, wide: true, maxLen: 300 },
       { key: "openedDate", label: "Ngày mở", type: "date", required: true },
       { key: "inspectionId", label: "Phiếu kiểm liên quan", type: "select", options: insp.map(i => ({ value: i.id, label: `${i.id} · ${i.type} · ${amgFmtDate(i.date)}` })) },
-      { key: "orderId", label: "Đơn hàng", type: "select", options: amgOpts(orders, o => o.id, o => `${o.id} – ${o.customer || ""}`) },
+      { key: "orderId", label: "Đơn hàng", type: "select", options: amgOpts(orders, o => o.id, o => amgOrderLabel(o)) },
       { key: "lotId", label: "Lô nguyên liệu", type: "select", options: lots.map(l => ({ value: l.id, label: l.lotNo || l.id })) },
       { key: "machineId", label: "Máy", type: "select", options: amgOpts(machines, m => m.id, m => m.id) },
       { key: "qtyNG", label: "Số lượng NG", type: "number", min: 0, step: "any" },
@@ -233,7 +233,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
     ],
     columns: [
       { key: "id", label: "Mã" }, { key: "openedDate", label: "Ngày mở", render: r => amgFmtDate(r.openedDate), export: r => amgFmtDate(r.openedDate) },
-      { key: "defect", label: "Lỗi" }, { key: "orderId", label: "Đơn hàng" }, { key: "owner", label: "Phụ trách" },
+      { key: "defect", label: "Lỗi" }, { key: "orderId", label: "Đơn hàng", render: r => amgOrderLabelById(r.orderId), export: r => amgOrderLabelById(r.orderId) }, { key: "owner", label: "Phụ trách" },
       { key: "dueDate", label: "Hạn", render: r => amgFmtDate(r.dueDate), export: r => amgFmtDate(r.dueDate) },
       { key: "status", label: "Trạng thái", render: r => rkh(StatusPill, { map: NCR_STATUS, value: r.status }), export: r => (NCR_STATUS[r.status] || {}).label }
     ],
@@ -262,7 +262,7 @@ function InspectPage({ extra, orders, machines, auditLog, currentUser }) {
         return rkh("div", null,
           row("Phiếu kiểm", i ? `${i.id} · ${i.type} · ${amgFmtDate(i.date)} · ${i.result === "dat" ? "Đạt" : "NG"}` : ""),
           row("Lô nguyên liệu", l ? `${l.lotNo || l.id} – ${l.material || ""} (${(LOT_STATUS[l.status] || {}).label})` : ""),
-          row("Đơn hàng", o ? `${o.id} – ${o.customer || ""} ${o.spec || ""}` : ""), row("Máy", n.machineId), row("Công đoạn", stageLabel(n.stage)),
+          row("Đơn hàng", o ? amgOrderLabel(o) : ""), row("Máy", n.machineId), row("Công đoạn", stageLabel(n.stage)),
           n.closedDate && row("Đóng phiếu", `${amgFmtDate(n.closedDate)} bởi ${n.closedBy || ""}`));
       }
     }]

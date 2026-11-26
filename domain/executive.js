@@ -238,9 +238,9 @@ function amgComputeExecutive(data, user, opts) {
     const need = map[a.tab];
     return !need || sc.can[need];
   });
-  if (cnt.unassigned) alerts.push({ id: "o-unassigned", level: "warn", title: `${cnt.unassigned} đơn chưa phân lệnh vào máy`, detail: unassignedOrders.slice(0, 4).map(r => r.o.id).join(", "), tab: "machines" });
+  if (cnt.unassigned) alerts.push({ id: "o-unassigned", level: "warn", title: `${cnt.unassigned} đơn chưa phân lệnh vào máy`, detail: unassignedOrders.slice(0, 4).map(r => amgOrderLabel(r.o)).join(", "), tab: "machines" });
   if (cnt.unconfirmed) alerts.push({ id: "o-unconfirmed", level: "info", title: `${cnt.unconfirmed} đơn chưa xác nhận quy trình`, detail: "Chưa thể phân lệnh", tab: "orders" });
-  if (cnt.risk) alerts.push({ id: "o-risk", level: "warn", title: `${cnt.risk} đơn chậm tiến độ, có nguy cơ trễ hạn`, detail: riskOrders.slice(0, 4).map(r => r.o.id).join(", "), tab: "orders" });
+  if (cnt.risk) alerts.push({ id: "o-risk", level: "warn", title: `${cnt.risk} đơn chậm tiến độ, có nguy cơ trễ hạn`, detail: riskOrders.slice(0, 4).map(r => amgOrderLabel(r.o)).join(", "), tab: "orders" });
   const pausedRuns = runRows.filter(r => r.run.productionStatus === "paused");
   if (pausedRuns.length) alerts.push({ id: "r-paused", level: "warn", title: `${pausedRuns.length} lệnh đang tạm dừng`, detail: pausedRuns.slice(0, 4).map(r => r.run.machineId).join(", "), tab: "machines" });
   const rank = { err: 0, warn: 1, info: 2 };

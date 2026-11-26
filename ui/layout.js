@@ -138,7 +138,7 @@ function GlobalSearch({ index, onPick }) {
       h("input", { ref: inputRef, className: "mes-gsearch-input", value: q, placeholder: "Tìm đơn, khách hàng, máy, nhân sự…", "aria-label": "Tìm kiếm toàn hệ thống (Ctrl+K)", autoComplete: "off", onFocus: () => setOpen(true), onChange: e => { setQ(e.target.value); setOpen(true); }, onKeyDown: onKey }),
       h("kbd", { className: "mes-gsearch-kbd" }, "Ctrl K")),
     open && q.trim() && h("div", { className: "mes-card mes-gsearch-panel", style: { boxShadow: AMG_SHADOW.lg } },
-      res && res.total === 0 && h("div", { className: "mes-gsearch-empty" }, `Không tìm thấy kết quả cho “${q.trim()}”. Thử mã đơn, tên khách hàng, mã máy hoặc tên nhân viên.`),
+      res && res.total === 0 && h("div", { className: "mes-gsearch-empty" }, `Không tìm thấy kết quả cho “${q.trim()}”. Thử tên khách hàng, mã máy hoặc tên nhân viên.`),
       res && res.groups.map(g => h("div", { key: g.key, className: "mes-gsearch-group" },
         h("div", { className: "mes-gsearch-gh" }, `${g.label} (${g.count})`),
         g.items.map(it => { n++; const idx = n; return h("button", { key: g.key + it.id, className: "mes-gsearch-item" + (idx === act ? " is-active" : ""), onMouseEnter: () => setAct(idx), onClick: () => pick(it) },

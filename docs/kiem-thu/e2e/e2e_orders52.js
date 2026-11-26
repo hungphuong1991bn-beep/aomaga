@@ -25,8 +25,8 @@ const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdro
 
   // ---- Danh sách ----
   const hdr=txt(doc.querySelector('.amg-hdr'));
-  const needCols=['STT','Mã đơn','Khách hàng','Quy trình','Công đoạn hiện tại','Máy đang SX','Vật liệu','Quy cách','SL đặt','Đã sản xuất','Còn lại','Ngày nhận','Ngày giao','Ưu tiên','Trạng thái','cảnh báo'];
-  ok('L1. Bảng có đủ cột theo yêu cầu (STT, mã, khách, ngày nhận/giao, vật liệu, quy cách, SL đặt, đã SX, còn lại, quy trình, công đoạn hiện tại, máy, ưu tiên, trạng thái, cảnh báo)', needCols.every(c=>hdr.includes(c)), hdr);
+  const needCols=['STT','Khách hàng','Quy trình','Công đoạn hiện tại','Máy đang SX','Vật liệu','Quy cách','SL đặt','Đã sản xuất','Còn lại','Ngày nhận','Ngày giao','Ưu tiên','Trạng thái','cảnh báo'];
+  ok('L1. Bảng có đủ cột theo yêu cầu (STT, khách, ngày nhận/giao, vật liệu, quy cách, SL đặt, đã SX, còn lại, quy trình, công đoạn hiện tại, máy, ưu tiên, trạng thái, cảnh báo)', needCols.every(c=>hdr.includes(c)), hdr);
   const r1=row('OR-1'), t1=txt(r1);
   ok('L2. Dòng OR-1 hiện đủ thông tin thật: khách, vật liệu, quy cách, SL + ĐVT, đã SX 400, còn lại 600, công đoạn, máy, ưu tiên', /Công ty Alpha/.test(t1)&&/0\.254BC/.test(t1)&&/1\.?000/.test(t1)&&/kg/.test(t1)&&/400/.test(t1)&&/600/.test(t1)&&/KTI-01/.test(t1)&&/Kéo tinh/i.test(t1), t1.slice(0,300));
   ok('L3. Cột Ngày nhận / Ngày giao đúng định dạng dd/mm/yyyy', /\d\d\/\d\d\/2026/.test(t1)&&(t1.match(/\d\d\/\d\d\/2026/g)||[]).length>=2, t1.slice(0,300));
@@ -51,10 +51,10 @@ const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdro
   ok('X1. Xuất Excel có các cột Còn lại, Tiến độ, Công đoạn hiện tại, Máy đang sản xuất', ['CÒN LẠI','TIẾN ĐỘ (%)','CÔNG ĐOẠN HIỆN TẠI','MÁY ĐANG SẢN XUẤT','NGÀY NHẬN','NGÀY GIAO'].every(h=>heads.includes(h)), heads.join('|'));
 
   // ---- Chi tiết đơn ----
-  nativeSet(search,'OR-1'); await sleep(250); await click(row('OR-1')); await sleep(500);
+  nativeSet(search,'0.254BC'); await sleep(250); await click(row('OR-1')); await sleep(500);
   const m=txt(modal());
   ok('D1. Mở chi tiết OR-1; có 5 nút thao tác: CHỈNH SỬA ĐƠN, XÓA ĐƠN, LẬP KẾ HOẠCH SẢN XUẤT, PHÂN MÁY, XEM LỊCH SỬ', ['CHỈNH SỬA ĐƠN','XÓA ĐƠN','LẬP KẾ HOẠCH SẢN XUẤT','PHÂN MÁY','XEM LỊCH SỬ'].every(l=>!!findBtn(new RegExp('^'+l+'$'),modal())), m.slice(0,200));
-  ok('D2. Nhóm A thông tin đơn: mã, khách, ngày nhận/giao, quy cách, vật liệu, SL đặt, ĐVT, ưu tiên, ghi chú, trạng thái, tiến độ', ['Mã đơn','Khách hàng','Ngày giao hàng','Quy quy'.slice(0,0)+'Quy cách','Mã vật liệu','Số lượng đặt','Đơn vị tính','Mức ưu tiên','Ghi chú','Trạng thái','Tiến độ','Số lượng còn lại','Công đoạn hiện tại','Máy đang sản xuất'].every(l=>m.includes(l))&&/Giao gấp/.test(m)&&/KTI-01/.test(m)&&/600/.test(m), m.slice(0,500));
+  ok('D2. Nhóm A thông tin đơn: khách, ngày nhận/giao, quy cách, vật liệu, SL đặt, ĐVT, ưu tiên, ghi chú, trạng thái, tiến độ', ['Khách hàng','Ngày giao hàng','Quy quy'.slice(0,0)+'Quy cách','Mã vật liệu','Số lượng đặt','Đơn vị tính','Mức ưu tiên','Ghi chú','Trạng thái','Tiến độ','Số lượng còn lại','Công đoạn hiện tại','Máy đang sản xuất'].every(l=>m.includes(l))&&/Giao gấp/.test(m)&&/KTI-01/.test(m)&&/600/.test(m), m.slice(0,500));
   const tabBtn=re=>findBtn(re,modal());
   await click(tabBtn(/^Máy & lệnh sản xuất$/)); await sleep(200); const mt=txt(modal());
   ok('D3. Nhóm C máy & lệnh: máy, công đoạn, người vận hành, ca, bắt đầu, kết thúc, chạy thực tế, tạm dừng, SL kế hoạch/thực tế, trạng thái lệnh', ['Máy','Công đoạn','Người vận hành','Ca','Bắt đầu','Kết thúc','Chạy thực tế','Tạm dừng','SL kế hoạch','SL thực tế','Trạng thái lệnh'].every(l=>mt.includes(l))&&/KTI-01/.test(mt)&&/Nguyễn Văn A/.test(mt)&&/Ca Ngày/.test(mt), mt.slice(0,300));
@@ -85,14 +85,14 @@ const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdro
   await sleep(300);
   const auditOf=id=>store('auditLog').filter(a=>a.type==='production_entry'&&a.targetId===id);
   ok('E2-pre. Trước khi xóa: OR-1 có lệnh RR1 + lượt sản lượng (productionEntries & auditLog); KTI-01 đang khóa bởi RR1', store('productionRuns').some(r=>r.id==='RR1')&&store('productionEntries').some(e=>e.orderId==='OR-1')&&auditOf('OR-1').length>0&&(w.__db.__store.machines['KTI-01']||{}).activeRunId==='RR1');
-  nativeSet(search,'OR-1'); await sleep(250); await click(row('OR-1')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(500);
+  nativeSet(search,'0.254BC'); await sleep(250); await click(row('OR-1')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(500);
   const fm=modal(), ft=txt(fm||doc.body);
   ok('E2. Admin bấm XÓA ĐƠN trên đơn đang sản xuất: hiện hộp xác nhận mạnh (không còn bị chặn), nêu số lệnh máy/lượt sản lượng/máy KTI-01; đơn chưa bị xóa', !!ordr('OR-1')&&/kể cả đang sản xuất/.test(ft)&&/1 lệnh máy/.test(ft)&&/KTI-01/.test(ft)&&/Không hoàn tác|KHÔNG hoàn tác/.test(ft), ft.slice(0,400));
   const goBtn=()=>doc.querySelector('[data-testid="force-del-go"]'), inR=()=>doc.querySelector('[data-testid="force-del-reason"]'), inC=()=>doc.querySelector('[data-testid="force-del-confirm"]');
-  ok('E2a. Nút "Xóa vĩnh viễn" bị khóa khi chưa nhập lý do và chưa gõ mã đơn', goBtn()&&goBtn().disabled);
+  ok('E2a. Nút "Xóa vĩnh viễn" bị khóa khi chưa nhập lý do và chưa gõ XOA', goBtn()&&goBtn().disabled);
   nativeSet(inR(),'Nhập nhầm đơn'); await sleep(100); ok('E2b. Chỉ có lý do → vẫn khóa', goBtn().disabled);
-  nativeSet(inC(),'OR-9'); await sleep(100); ok('E2c. Gõ sai mã đơn → vẫn khóa', goBtn().disabled);
-  nativeSet(inC(),'or-1'); await sleep(100); ok('E2d. Lý do + gõ đúng mã đơn (không phân biệt hoa/thường) → mở khóa', !goBtn().disabled);
+  nativeSet(inC(),'ABC'); await sleep(100); ok('E2c. Gõ sai chữ xác nhận → vẫn khóa', goBtn().disabled);
+  nativeSet(inC(),'xoa'); await sleep(100); ok('E2d. Lý do + gõ đúng XOA (không phân biệt hoa/thường) → mở khóa', !goBtn().disabled);
   await click(goBtn()); await sleep(900);
   const m1=w.__db.__store.machines['KTI-01']||{};
   ok('E2e. Xóa xong: đơn OR-1 biến mất khỏi Firebase và danh sách', !ordr('OR-1')&&!row('OR-1'));
@@ -120,15 +120,15 @@ const closeModal=async()=>{ const b=doc.querySelector('.mes-mobile-modal-backdro
   await click(findBtn(/^Thoát chọn nhiều$/)||findBtn(/^Thoát$/)); await sleep(200);
   // Đơn chưa có dữ liệu sản xuất: giữ đường xóa thường (E3/E4)
   await A(`const stages={};STAGES.forEach(s=>stages[s.key]={done:0,remain:0});await db.collection("orders").doc("OR-3").set(normalizeOrderStages({id:"OR-3",customer:"Công ty Alpha",spec:"0.5",materialCode:"B",quantity:300,orderDate:"2026-11-01",deliveryDate:"2026-12-10",priority:"normal",stages,finishedDone:0,finishedShort:0,routing:["keo_tinh"],routingConfirmed:true}));`); await sleep(400);
-  nativeSet(search,'OR-26'); await sleep(250); await click(row('OR-26')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(300);
-  ok('E3. Xóa đơn chưa có dữ liệu sản xuất: có hộp xác nhận', /Xóa đơn OR-26/.test(txt(doc.body))&&!!findBtn(/^Xóa đơn$/)); await click(findBtn(/^Xóa đơn$/)); await sleep(700);
+  nativeSet(search,'KH 26'); await sleep(250); await click(row('OR-26')); await sleep(400); await click(findBtn(/^XÓA ĐƠN$/,modal())); await sleep(300);
+  ok('E3. Xóa đơn chưa có dữ liệu sản xuất: có hộp xác nhận', /Xóa đơn KH 26 · 0\.26/.test(txt(doc.body))&&!!findBtn(/^Xóa đơn$/)); await click(findBtn(/^Xóa đơn$/)); await sleep(700);
   ok('E4. Sau xác nhận: đơn bị xóa khỏi Firebase và danh sách; không còn lệnh nào của OR-26', !ordr('OR-26')&&!row('OR-26')&&!store('productionRuns').some(r=>r.orderId==='OR-26'));
   // Kế hoạch / phân máy
-  nativeSet(search,'OR-3'); await sleep(250); await click(row('OR-3')); await sleep(400); await click(findBtn(/^LẬP KẾ HOẠCH SẢN XUẤT$/,modal())); await sleep(700);
-  const qin=[...doc.querySelectorAll('input.mes-input')].find(i=>/Tìm/.test(i.placeholder||'')||i.value==='OR-3');
-  ok('P1. LẬP KẾ HOẠCH SẢN XUẤT mở đúng phân hệ Kế hoạch, tự lọc sẵn đơn OR-3 (không phải tìm lại)', /Kế hoạch sản xuất/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&qin&&qin.value==='OR-3'&&/OR-3/.test(txt(doc.body)), qin&&qin.value);
-  await clickText(/^Đơn hàng & BOM/); await sleep(500); nativeSet([...doc.querySelectorAll('input.mes-input')].find(i=>/Tìm/.test(i.placeholder||'')),'OR-3'); await sleep(250); await click(row('OR-3')); await sleep(400); await click(findBtn(/^PHÂN MÁY$/,modal())); await sleep(800);
-  ok('P2. PHÂN MÁY mở ngay hộp phân lệnh với đơn OR-3 đã chọn sẵn', !!modal()&&/OR-3/.test(txt(modal()))&&/Kế hoạch sản xuất/.test(txt(doc.querySelector('.mes-topbar-crumb'))), txt(modal()||doc.body).slice(0,160));
+  nativeSet(search,'0.5'); await sleep(250); await click(row('OR-3')); await sleep(400); await click(findBtn(/^LẬP KẾ HOẠCH SẢN XUẤT$/,modal())); await sleep(700);
+  const qin=[...doc.querySelectorAll('input.mes-input')].find(i=>/Tìm/.test(i.placeholder||'')||/Tìm/.test(i.placeholder||'')); const onlyBanner=/Đang xem riêng đơn: Công ty Alpha · 0\.5/.test(txt(doc.body));
+  ok('P1. LẬP KẾ HOẠCH SẢN XUẤT mở đúng phân hệ Kế hoạch, tự lọc sẵn đúng đơn (không phải tìm lại, không hiện mã)', /Kế hoạch sản xuất/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&qin&&qin.value===''&&onlyBanner&&doc.querySelectorAll('.pl-row[data-order]').length===1&&!!doc.querySelector('.pl-row[data-order="OR-3"]'), qin&&qin.value);
+  await clickText(/^Đơn hàng & BOM/); await sleep(500); nativeSet([...doc.querySelectorAll('input.mes-input')].find(i=>/Tìm/.test(i.placeholder||'')),'0.5'); await sleep(250); await click(row('OR-3')); await sleep(400); await click(findBtn(/^PHÂN MÁY$/,modal())); await sleep(800);
+  ok('P2. PHÂN MÁY mở ngay hộp phân lệnh với đơn đã chọn sẵn (Công ty Alpha · 0.5)', !!modal()&&/Công ty Alpha · 0\.5/.test(txt(modal()))&&/Kế hoạch sản xuất/.test(txt(doc.querySelector('.mes-topbar-crumb'))), txt(modal()||doc.body).slice(0,160));
   const real=errs.filter(e=>!/Warning: .*(act|unmounted)/i.test(e)); ok('Z. Không có lỗi console/React', real.length===0, real.slice(0,3).join(' || '));
   console.log(`\n${pass} pass, ${fail} fail`); process.exit(fail?1:0);
 })().catch(e=>{console.log('CRASH',e.stack||e);process.exit(2);});

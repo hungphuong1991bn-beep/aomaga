@@ -57,7 +57,7 @@ function OrderDetailModal({ order, auditLog, extra, runs, entries, currentUser, 
   const actionBar = !readOnly && order.status !== "completed" && rkh("div", { className: "mes-no-print", "data-testid": "order-actions", style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
     isAdmin && onEdit && rkh(Button, { onClick: onEdit }, "CHỈNH SỬA ĐƠN"),
     isAdmin && onDelete && rkh(Button, { variant: "danger", onClick: () => onDelete(order) }, "XÓA ĐƠN"),
-    canPlan && onNavigateFocus && rkh(Button, { variant: "primary", onClick: () => goPlan({ q: order.id }) }, "LẬP KẾ HOẠCH SẢN XUẤT"),
+    canPlan && onNavigateFocus && rkh(Button, { variant: "primary", onClick: () => goPlan({ orderId: order.id }) }, "LẬP KẾ HOẠCH SẢN XUẤT"),
     canPlan && onNavigateFocus && rkh(Button, { variant: "primary", disabled: !amgIsFlowOrder(order), title: amgIsFlowOrder(order) ? "" : "Đơn chưa xác nhận quy trình — sửa đơn để xác nhận trước khi phân máy", onClick: () => goPlan({ assign: { orderId: order.id, stageKey: curPlan && curPlan.stageKey } }) }, "PHÂN MÁY"),
     rkh(Button, { variant: "ghost", onClick: () => setTab("edits") }, "XEM LỊCH SỬ"));
   const tabs = [["info", "Thông tin chung"], ["machines", "Máy & lệnh sản xuất"], ["bom", "BOM và định mức"], ["stages", "Tiến độ công đoạn"], ["prod", "Lịch sử sản xuất"], ["quality", "Lịch sử chất lượng"], ["edits", "Lịch sử chỉnh sửa"], ["ship", "Lịch sử giao hàng"]];
@@ -67,7 +67,7 @@ function OrderDetailModal({ order, auditLog, extra, runs, entries, currentUser, 
     rkh(DetailTabs, { tabs: tabs.map(([key, label]) => ({ key, label })), active: tab, onChange: setTab }),
 
     tab === "info" && rkh("div", null,
-      row("Mã đơn", order.id), row("Khách hàng", order.customer || "—"), row("Ngày xuống đơn", amgFmtDate(order.orderDate)),
+      row("Khách hàng", order.customer || "—"), row("Ngày xuống đơn", amgFmtDate(order.orderDate)),
       row("Ngày giao hàng", order.deliveryDate ? amgFmtDate(order.deliveryDate) : "Chưa nhập"), row("Quy cách", order.spec || "—"), row("Mã vật liệu", order.materialCode || "—"),
       row("Mức ưu tiên", amgPriorityMeta(order.priority).label), row("Quy trình", applicable.map(k => amgStageLabel(k)).join(" → ") + (amgIsFlowOrder(order) ? "" : " (suy từ quy cách)")), row("Ghi chú", order.note || "—"), order.status === "completed" && row("Hoàn thành lúc", amgFmtDateTime(order.completedAt) + (order.completedBy ? " · " + order.completedBy : "")), row("Loại dây", order.wireFinish === "mềm" ? "Dây ủ mềm" : order.wireFinish === "cứng" ? "Dây cứng" : "Theo quy cách"),
       row("Số lượng đặt", qty !== null ? fmt(qty) + " " + unit : "—"), row("Đơn vị tính", unit), row("Tồn kho", fmt(order.inventory) + " " + unit), row("Số lượng đã sản xuất (thành phẩm)", fmt(prog.completedQty) + " " + unit), row("Số lượng còn lại", qty !== null ? fmt(Math.max(0, qty - prog.completedQty)) + " " + unit : "—"), row("Công đoạn hiện tại", curStage), row("Máy đang sản xuất", runMachines.join(", ") || "—"),

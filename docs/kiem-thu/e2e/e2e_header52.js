@@ -72,21 +72,21 @@ const sInput=()=>doc.querySelector('.mes-gsearch-input');
   for(const val of ['H','HD','HD-','HD-0','HD-00','HD-001']){ nativeSet(sInput(),val); await sleep(30); }
   await sleep(100);
   ok('Q2. Gõ KHÔNG gọi lại mạng/Firebase (dùng dữ liệu onSnapshot đã có)', calls===0, calls);
-  let panel=txt(doc.querySelector('.mes-gsearch-panel')||doc.body); ok('Q3. Gợi ý ngay khi gõ, nhóm "Đơn hàng", hiện mã + khách hàng', /Đơn hàng \(1\)/.test(panel)&&/HD-001 · Công ty ĐÃ ĐỔI TÊN/.test(panel), panel.slice(0,200));
+  let panel=txt(doc.querySelector('.mes-gsearch-panel')||doc.body); ok('Q3. Gợi ý ngay khi gõ, nhóm "Đơn hàng", hiện khách hàng (không mã đơn)', /Đơn hàng \(1\)/.test(panel)&&/Công ty ĐÃ ĐỔI TÊN/.test(panel)&&!/HD-001/.test(panel), panel.slice(0,200));
   nativeSet(sInput(),'dong viet'); await sleep(60); nativeSet(sInput(),'minh long'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel'));
   ok('Q4. Tìm không dấu theo tên khách hàng, có nhóm "Khách hàng" và "Đơn hàng"', /Khách hàng \(1\)/.test(panel)&&/Dây điện Minh Long/.test(panel), panel.slice(0,200));
-  nativeSet(sInput(),'0.254'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel')); ok('Q5. Tìm theo quy cách', /Quy cách sản phẩm/.test(panel)&&/HD-001/.test(panel), panel.slice(0,160));
+  nativeSet(sInput(),'0.254'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel')); ok('Q5. Tìm theo quy cách', /Quy cách sản phẩm/.test(panel)&&/0\.254BC/.test(panel), panel.slice(0,160));
   nativeSet(sInput(),'KT-01'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel')); ok('Q6. Tìm theo mã máy', /Máy sản xuất/.test(panel)&&/KT-01/.test(panel), panel.slice(0,160));
-  nativeSet(sInput(),'khach da xong'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel')); ok('Q7. Đơn hoàn thành nằm ở nhóm riêng "Đơn hàng hoàn thành"', /Đơn hàng hoàn thành \(1\)/.test(panel)&&/HD-OLD/.test(panel), panel.slice(0,160));
+  nativeSet(sInput(),'khach da xong'); await sleep(60); panel=txt(doc.querySelector('.mes-gsearch-panel')); ok('Q7. Đơn hoàn thành nằm ở nhóm riêng "Đơn hàng hoàn thành"', /Đơn hàng hoàn thành \(1\)/.test(panel)&&/Khách đã xong/.test(panel), panel.slice(0,160));
   nativeSet(sInput(),'zzzkhongco'); await sleep(60); ok('Q8. Không có kết quả → hiện thông báo "Không tìm thấy"', /Không tìm thấy kết quả/.test(txt(doc.querySelector('.mes-gsearch-panel'))));
   keydown(sInput(),{key:'Escape'}); await sleep(80); ok('Q9. ESC đóng bảng kết quả', !doc.querySelector('.mes-gsearch-panel')&&!doc.querySelector('.mes-gsearch-box').className.includes('is-open'));
-  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'HD-OLD'); await sleep(60); await click([...doc.querySelectorAll('.mes-gsearch-item')].find(b=>/HD-OLD/.test(txt(b)))); await sleep(500);
-  ok('Q10. Chọn kết quả đơn hoàn thành → mở đúng tab "Đơn hàng hoàn thành" VÀ mở sẵn chi tiết đúng đơn', /Đơn hàng hoàn thành/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&!!doc.querySelector('.mes-modal-card')&&/HD-OLD/.test(txt(doc.querySelector('.mes-modal-card'))), txt(doc.querySelector('.mes-modal-card')||doc.body).slice(0,120));
+  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'khach da xong'); await sleep(60); await click([...doc.querySelectorAll('.mes-gsearch-item')].find(b=>/Khách đã xong/.test(txt(b))&&/hoàn thành|0\.2/i.test(txt(b)))); await sleep(500);
+  ok('Q10. Chọn kết quả đơn hoàn thành → mở đúng tab "Đơn hàng hoàn thành" VÀ mở sẵn chi tiết đúng đơn', /Đơn hàng hoàn thành/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&!!doc.querySelector('.mes-modal-card')&&/Khách đã xong/.test(txt(doc.querySelector('.mes-modal-card'))), txt(doc.querySelector('.mes-modal-card')||doc.body).slice(0,120));
   await click(findBtn(/^Đóng$/,doc.querySelector('.mes-modal-card'))); await sleep(200);
-  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'HD-002'); await sleep(60); keydown(sInput(),{key:'Enter'}); await sleep(500);
-  ok('Q11. Enter chọn kết quả đầu: mở tab Đơn hàng & BOM với chi tiết đơn HD-002', /Đơn hàng & BOM/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&!!doc.querySelector('.mes-modal-card')&&/HD-002/.test(txt(doc.querySelector('.mes-modal-card'))));
+  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'minh long'); await sleep(60); keydown(sInput(),{key:'Enter'}); await sleep(500);
+  ok('Q11. Enter chọn kết quả đầu: mở tab Đơn hàng & BOM với chi tiết đơn Minh Long', /Đơn hàng & BOM/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&!!doc.querySelector('.mes-modal-card')&&/Dây điện Minh Long/.test(txt(doc.querySelector('.mes-modal-card'))));
   await click(doc.querySelector('.mes-mobile-modal-backdrop')); await sleep(200); // đóng hộp thoại bằng cách bấm nền (hộp chi tiết đơn không có nút Đóng)
-  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'Minh Long'); await sleep(60); await click([...doc.querySelectorAll('.mes-gsearch-item')].find(b=>/Dây điện Minh Long/.test(txt(b))&&!/HD-/.test(txt(b)))); await sleep(500);
+  keydown(w,{key:'k',ctrlKey:true}); await sleep(80); nativeSet(sInput(),'Minh Long'); await sleep(60); await click([...doc.querySelectorAll('.mes-gsearch-item')].find(b=>/Dây điện Minh Long\s*1 đơn hàng/.test(txt(b)))); await sleep(500);
   ok('Q12. Chọn một khách hàng → sang tab Đơn hàng và lọc sẵn theo khách đó', /Đơn hàng & BOM/.test(txt(doc.querySelector('.mes-topbar-crumb')))&&doc.querySelector('input.mes-input')&&doc.querySelector('input.mes-input').value==='Dây điện Minh Long');
   // phân quyền: chỉ mục chỉ có nhóm thuộc tab được xem
   const r=JSON.parse(await A(`const o=[{id:"X1",customer:"KH-BI-MAT",spec:"s",status:"completed"},{id:"X2",customer:"KH-BI-MAT",spec:"s"}];
