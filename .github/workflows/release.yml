@@ -128,7 +128,14 @@ jobs:
           AMG_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          if [ "${{ steps.mode.outputs.signed }}" = "true" ]; then ./gradlew --no-daemon assembleRelease; else ./gradlew --no-daemon assembleDebug; fi
+          if [ "${{ steps.mode.outputs.signed }}" = "true" ]; then TASK=assembleRelease; else TASK=assembleDebug; fi
+          # Thử lại tối đa 3 lần nếu mạng/Maven báo lỗi tạm thời (vd 429)
+          for i in 1 2 3; do
+            ./gradlew --no-daemon "$TASK" && exit 0
+            echo "::warning::Gradle lỗi lần $i, đợi rồi thử lại..."
+            sleep $((i * 30))
+          done
+          exit 1
       - name: Đặt tên và kiểm tra APK
         run: |
           mkdir -p out
