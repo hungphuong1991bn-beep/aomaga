@@ -4,8 +4,6 @@ buildscript {
     
     repositories {
         google()
-        // Mirror của Maven Central (tránh lỗi 429 trên runner GitHub)
-        maven { url 'https://maven-central.storage-download.googleapis.com/maven2/' }
         mavenCentral()
     }
     dependencies {
@@ -22,8 +20,6 @@ apply from: "variables.gradle"
 allprojects {
     repositories {
         google()
-        // Mirror của Maven Central (tránh lỗi 429 trên runner GitHub)
-        maven { url 'https://maven-central.storage-download.googleapis.com/maven2/' }
         mavenCentral()
     }
 }
