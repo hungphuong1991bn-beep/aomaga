@@ -637,6 +637,7 @@ function AppInner() {
     currentUser: currentUser,
     attendance: data.attendance,
     onNavigate: setActiveTab,
+    onNavigateFocus: navigateFocus,
     isAdmin: isAdmin,
     orders: data.orders,
     machines: data.machines,

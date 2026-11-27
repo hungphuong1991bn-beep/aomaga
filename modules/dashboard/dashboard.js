@@ -560,115 +560,25 @@ function ActivityFeed({
     onSave: onEditProductionEntry
   }));
 }
+/* v57: Tổng quan = TRUNG TÂM ĐIỀU HÀNH (chỉ xem · tổng hợp · phân tích · điều hành) — xem modules/dashboard/overview.js.
+   Đã gỡ khỏi Tổng quan 4 khu nhập liệu trùng: "Tổng quan · Sản xuất", "Nhập sản lượng đã xuất xong",
+   "Công đoạn cung cấp nguyên vật liệu", "Nhập sản lượng Kéo trung". Các thành phần cũ (QuickEntryForm, ActivityFeed,
+   StageHistorySection, ProductionPipeline và KeoTrungPage trong modules/keotrung) VẪN còn trong source, KHÔNG xóa dữ liệu/handler
+   (handleQuickEntry, handleKeoTrungEntry…) — chỉ không còn được hiển thị ở Tổng quan. */
 function DashboardPage({
   currentUser,
-  isAdmin,
   orders,
   machines,
   staff,
   scrap,
   auditLog,
-  onQuickEntry,
-  onKeoTrungEntry,
-  onEditKeoTrung,
-  onDeleteKeoTrung,
-  onUpdateScrap,
   attendance,
   runs,
   extra,
-  onNavigate
+  onNavigate,
+  onNavigateFocus
 }) {
-  const [selectedStageKey, setSelectedStageKey] = useState(null);
-  // Admin xem tất cả công đoạn; tài khoản theo tổ chỉ xem đúng công đoạn của tổ mình
-  const visibleStageKeys = null; // v49: mọi tài khoản đều XEM đủ các công đoạn (nhập/sửa vẫn theo phân quyền)
-  const visibleDashboardStages = visibleStageKeys ? STAGES.filter(s => visibleStageKeys.includes(s.key)) : STAGES;
-  const isStageVisibleDash = key => !visibleStageKeys || visibleStageKeys.includes(key);
-  const stageTotals = useMemo(() => {
-    const t = {};
-    STAGES.forEach(s => {
-      t[s.key] = orders.reduce((acc, o) => acc + (o.stages?.[s.key]?.done || 0), 0);
-    });
-    // Kéo trung: cộng thêm sản lượng phôi không gắn khách hàng cụ thể (không nằm trong
-    // stages.keo_trung.done của order nào) — lấy từ audit log để phản ánh đúng tổng thực tế.
-    t.keo_trung = (auditLog || []).filter(a => a.type === "production_entry" && a.stageKey === "keo_trung" && typeof a.qty === "number").reduce((a, e) => a + e.qty, 0);
-    return t;
-  }, [orders, auditLog]);
-  const machineStats = useMemo(() => {
-    const t = {
-      running: 0,
-      idle: 0,
-      maintenance: 0,
-      broken: 0
-    };
-    machines.forEach(m => {
-      t[m.status] = (t[m.status] || 0) + 1;
-    });
-    return t;
-  }, [machines]);
-  const openOrders = orders.filter(o => o.status !== "completed" && orderProgress(o).statusLabel !== "Hoàn thành").length;
-  const last7Scrap = scrap.filter(s => {
-    if (!isStageVisibleDash(s.stage)) return false;
-    const d = new Date(s.date);
-    const now = new Date();
-    return (now - d) / (1000 * 3600 * 24) <= 7;
-  }).reduce((a, s) => a + (s.qty || 0), 0);
-  return /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      flexDirection: "column",
-      gap: 18
-    }
-  }, /*#__PURE__*/React.createElement(RoleOverview, {
-    currentUser: currentUser,
-    orders: orders,
-    machines: machines,
-    staff: staff,
-    scrap: scrap,
-    attendance: attendance,
-    auditLog: auditLog,
-    runs: runs,
-    extra: extra,
-    onNavigate: onNavigate
-  }), /*#__PURE__*/React.createElement(ProductionPipeline, {
-    stageTotals: stageTotals,
-    visibleStages: visibleDashboardStages
-  }), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: currentUser.role === "employee" ? "minmax(0,1fr) minmax(0,1fr)" : "minmax(0,1fr) minmax(0,1fr)",
-      gap: 18
-    }
-  }, /*#__PURE__*/React.createElement(QuickEntryForm, {
-    currentUser: currentUser,
-    orders: orders,
-    onSubmit: onQuickEntry,
-    onStageChange: setSelectedStageKey
-  }), /*#__PURE__*/React.createElement(ActivityFeed, {
-    auditLog: auditLog,
-    scrap: scrap,
-    orders: orders,
-    currentUser: currentUser,
-    isAdmin: isAdmin,
-    visibleStageKeys: visibleStageKeys,
-    onUpdateScrap: onUpdateScrap,
-    onEditProductionEntry: onEditKeoTrung
-  })), selectedStageKey && /*#__PURE__*/React.createElement(StageHistorySection, {
-    stageKey: selectedStageKey,
-    auditLog: auditLog,
-    onEditEntry: isAdmin ? onEditKeoTrung : undefined,
-    onDeleteEntry: isAdmin ? onDeleteKeoTrung : undefined
-  }), (amgIsPower(currentUser) || currentUser.team === "KÉO" || !currentUser.team) && /*#__PURE__*/React.createElement("div", {
-    style: {
-      borderTop: `2px solid ${COLORS.border}`,
-      paddingTop: 20
-    }
-  }, /*#__PURE__*/React.createElement(KeoTrungPage, {
-    orders: orders,
-    auditLog: auditLog,
-    currentUser: currentUser,
-    onSubmit: onKeoTrungEntry,
-    onEditEntry: onEditKeoTrung,
-    onDeleteEntry: onDeleteKeoTrung
-  })));
+  return React.createElement(ProductionOverview, {
+    currentUser, orders, machines, staff, scrap, attendance, auditLog, runs, extra, onNavigate, onNavigateFocus
+  });
 }
-

@@ -228,9 +228,9 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
   const { askConfirm, showAlert } = useDialog();
   const focus0 = useState(() => amgTakeFocus("orders"))[0]; // từ tìm kiếm toàn hệ thống
   const [q, setQ] = useState(() => (focus0 && focus0.q ? focus0.q : ""));
-  const [fStatus, setFStatus] = useState("all");
+  const [fStatus, setFStatus] = useState(() => (focus0 && ["new", "waiting", "producing", "soon", "overdue"].indexOf(focus0.status) > -1 ? focus0.status : "all")); // v57: Tổng quan mở sẵn đúng bộ lọc
   const [fCust, setFCust] = useState("all");
-  const [fStage, setFStage] = useState("all");
+  const [fStage, setFStage] = useState(() => (focus0 && focus0.stage && STAGE_MAP[focus0.stage] ? focus0.stage : "all")); // v57: Tổng quan mở sẵn đúng công đoạn
   const [fPrio, setFPrio] = useState("all");
   const [rFrom, setRFrom] = useState(""), [rTo, setRTo] = useState(""), [dFrom, setDFrom] = useState(""), [dTo, setDTo] = useState("");
   const [modal, setModal] = useState(() => { const o = focus0 && focus0.orderId ? orders.find(x => x.id === focus0.orderId) : null; return o ? { kind: "view", order: o } : null; });

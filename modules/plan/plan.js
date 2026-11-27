@@ -377,7 +377,7 @@ function TVWall({ machines, runs, orders, onClose, initialGroup }) {
 /* ===================== MÀN 2: GIÁM SÁT MÁY MÓC ===================== */
 // v56: tab "Thẻ máy" là Trung tâm điều hành sản xuất (modules/plan/command_center.js): KPI, cảnh báo, thanh công đoạn, tìm kiếm, Lưới/Danh sách.
 // "Danh mục máy & trạng thái" và Màn hình TV giữ nguyên chức năng.
-function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, catalogProps, initialQ, focusMachineId }) {
+function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, catalogProps, initialQ, focusMachineId, initialStatus }) {
   const [sub, setSub] = useState("cards");
   const [tv, setTv] = useState(null); // null = tắt; ngược lại là nhóm máy khởi tạo của màn hình TV
   const subBtn = (k, label) => rkh("button", { key: k, onClick: () => setSub(k), style: { background: "none", border: "none", cursor: "pointer", padding: "8px 4px", marginRight: 18, fontWeight: 700, fontSize: FZ(14), color: sub === k ? COLORS.copperBright : COLORS.textDim, borderBottom: sub === k ? `2px solid ${COLORS.copper}` : "2px solid transparent" } }, label);
@@ -385,7 +385,7 @@ function MonitorScreen({ machines, runs, orders, entries, can, openModal, act, c
     rkh("div", { style: { display: "flex", borderBottom: `1px solid ${COLORS.border}`, marginBottom: 14 } }, subBtn("cards", "Trung tâm điều hành máy"), subBtn("catalog", "Danh mục máy & trạng thái")),
     sub === "catalog" ? rkh("div", null, rkh(MachinesPage, catalogProps)) :
       rkh("div", null,
-        rkh(CommandCenter, { machines, runs, orders, can, openModal, act, initialQ: initialQ || "", focusMachineId, onTv: g => setTv(g || "all") }),
+        rkh(CommandCenter, { machines, runs, orders, can, openModal, act, initialQ: initialQ || "", focusMachineId, initialStatus, onTv: g => setTv(g || "all") }),
         tv !== null && rkh(TVWall, { machines, runs, orders, initialGroup: tv, onClose: () => setTv(null) })));
 }
 
@@ -448,7 +448,7 @@ function PlanPage({ orders, machines, runs, entries, flowError, auditLog, staff,
     rkh("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
       [["plan", "Kế hoạch & phân công sản xuất"], ["monitor", "Giám sát máy móc"]].map(([k, l]) => rkh("button", { key: k, onClick: () => setScreen(k), className: "mes-btn", style: { padding: "10px 18px", borderRadius: 10, cursor: "pointer", fontWeight: 800, fontSize: FZ(14), border: `2px solid ${screen === k ? COLORS.copper : COLORS.border}`, background: screen === k ? `${COLORS.copper}16` : COLORS.bgPanel, color: screen === k ? COLORS.copper : COLORS.textDim } }, l))),
     screen === "plan" ? rkh(PlanBoard, { orders, machines, runs, can, openModal: setModal, isAdmin, initialQ: focus0 && focus0.q ? focus0.q : "", initialOrderId: focus0 && focus0.orderId ? focus0.orderId : "" }) :
-      rkh(MonitorScreen, { initialQ: focus0 && focus0.q ? focus0.q : "", focusMachineId: focus0 && focus0.machineId ? focus0.machineId : null, machines, runs, orders, entries, can, openModal: setModal, act, catalogProps: { machines, isAdmin, canEdit, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed } }),
+      rkh(MonitorScreen, { initialQ: focus0 && focus0.q ? focus0.q : "", focusMachineId: focus0 && focus0.machineId ? focus0.machineId : null, initialStatus: focus0 && focus0.status ? focus0.status : "", machines, runs, orders, entries, can, openModal: setModal, act, catalogProps: { machines, isAdmin, canEdit, onUpdateMachine, onAddMachine, onDeleteMachine, onRestoreSeed } }),
     modal && modal.kind === "detail" && ordObj && rkh(OrderPlanDetail, { order: ordObj, runs, machines, orders, auditLog, can, openModal: setModal, onClose: close, act }),
     modal && modal.kind === "assign" && rkh(AssignModal, { order: ordObj || undefined, orders, machines, runs, staff, fixedMachine: macObj || undefined, initialStage: modal.stageKey, onClose: close, onDone: (m, newRun, askStart) => { notify(m); if (askStart && newRun) setTimeout(() => setModal({ kind: "start", runId: newRun.id }), 80); } }),
     modal && modal.kind === "start" && run && rkh(StartConfirmModal, { run, orders, onClose: close, onDone: m => notify(m) }),

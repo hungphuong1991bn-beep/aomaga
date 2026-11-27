@@ -421,11 +421,11 @@ function CcAlerts({ alerts, onPick }) {
       shown.length > 80 && rkh("div", { className: "cc-r-sub", style: { padding: 6 } }, `… và ${shown.length - 80} cảnh báo khác — lọc theo loại để xem.`)));
 }
 
-function CommandCenter({ machines, runs, orders, can, openModal, act, initialQ, focusMachineId, onTv }) {
+function CommandCenter({ machines, runs, orders, can, openModal, act, initialQ, focusMachineId, initialStatus, onTv }) {
   const groups = useMemo(() => amgCcGroups(machines), [machines]);
   const firstActive = () => { const open = (runs || []).filter(amgIsOpenRun); const g = groups.find(x => x.machines.some(m => amgOpenRunOfMachine(open, m.id))); return (g || groups[0] || { key: "all" }).key; };
   const [group, setGroupRaw] = useState(() => { const s = amgCcPref("group", ""); return s === "all" || groups.some(g => g.key === s) ? s : firstActive(); });
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(() => (initialStatus && AMG_CC_FILTERS.some(f => f.key === initialStatus) ? initialStatus : "all")); // v57: Tổng quan mở sẵn đúng bộ lọc trạng thái
   const [q, setQ] = useState(initialQ || "");
   const [view, setViewRaw] = useState(() => (amgCcPref("view", "grid") === "list" ? "list" : "grid"));
   const [sortKey, setSortKey] = useState(() => { const s = amgCcPref("sort", "id"); return ["id", "status", "order"].indexOf(s) > -1 ? s : "id"; });
