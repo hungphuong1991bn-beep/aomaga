@@ -99,6 +99,8 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 17 }
       - uses: android-actions/setup-android@v3
+        with:
+          packages: ''
       - run: npm ci
       - run: npm run prepare:www
       - name: Đồng bộ web vào dự án Android
