@@ -1,0 +1,37 @@
+# Bộ cài Windows (NSIS) — AOMAGA MES
+appId: vn.aomaga.mes
+productName: AOMAGA MES
+copyright: CÔNG TY TNHH ĐỒNG KỸ THUẬT AOMAGA VIỆT NAM
+directories:
+  output: dist
+  buildResources: build
+asar: true
+files:
+  - electron/**
+  - www/**
+  - package.json
+  - "!**/*.map"
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  # Ký số: đặt CSC_LINK + CSC_KEY_PASSWORD (GitHub Secrets) → electron-builder tự ký. Không có chứng thư → bộ cài KHÔNG ký (SmartScreen sẽ cảnh báo).
+nsis:
+  oneClick: false                      # cho chọn thư mục cài đặt
+  perMachine: false                    # cài theo người dùng, không cần quyền Administrator (đổi thành true nếu muốn cài cho mọi tài khoản)
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: AOMAGA MES
+  runAfterFinish: true
+  deleteAppDataOnUninstall: false      # gỡ cài đặt KHÔNG xoá dữ liệu người dùng (bộ nhớ đệm, hàng đợi ghi, cấu hình)
+  language: "1066"                     # Tiếng Việt
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  installerHeaderIcon: build/icon.ico
+  artifactName: AOMAGA-MES-Setup-x64.exe
+# Cập nhật tự động từ GitHub Releases (owner/repo được truyền lúc build: -c.publish.owner / -c.publish.repo)
+publish:
+  provider: github
+  releaseType: release

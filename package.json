@@ -1,0 +1,44 @@
+{
+  "name": "aomaga-mes",
+  "productName": "AOMAGA MES",
+  "version": "1.0.0",
+  "description": "AOMAGA MES - Phần mềm quản lý sản xuất (Web, Windows, Android)",
+  "private": true,
+  "author": "AOMAGA VIỆT NAM",
+  "license": "UNLICENSED",
+  "main": "electron/main.js",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.js",
+    "verify": "node scripts/verify-repo.js",
+    "test": "bash docs/kiem-thu/chay_tat_ca.sh",
+    "start": "npm run prepare:www && electron .",
+    "dist:win": "npm run prepare:www && electron-builder --win nsis --x64 --publish never",
+    "android:sync": "npm run prepare:www && cap sync android",
+    "android:release": "npm run android:sync && cd android && ./gradlew assembleRelease",
+    "android:debug": "npm run android:sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
+  "devDependencies": {
+    "@capacitor/android": "6.2.1",
+    "@capacitor/app": "6.0.2",
+    "@capacitor/cli": "6.2.1",
+    "@capacitor/core": "6.2.1",
+    "@capacitor/filesystem": "6.0.3",
+    "@capacitor/share": "6.0.3",
+    "@capacitor/splash-screen": "6.0.3",
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8",
+    "jsdom": "22.1.0",
+    "prop-types": "15.8.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "recharts": "2.8.0",
+    "xlsx": "0.18.5",
+    "yaml": "2.6.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

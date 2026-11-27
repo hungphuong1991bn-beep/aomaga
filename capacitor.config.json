@@ -1,0 +1,10 @@
+{
+  "appId": "vn.aomaga.mes",
+  "appName": "AOMAGA MES",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false, "backgroundColor": "#EAEFF5" },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 2500, "launchAutoHide": true, "backgroundColor": "#FFFFFF", "androidScaleType": "CENTER_INSIDE", "showSpinner": false }
+  }
+}
