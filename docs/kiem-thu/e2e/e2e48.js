@@ -18,7 +18,7 @@ async function wizardRun(stageLabel,machine,orderId,op,qty){
   nativeSet(ins.find(i=>/Chọn hoặc nhập/.test(i.placeholder)),op); await sleep(150);
   const b=findBtn(/^Xác nhận phân lệnh$/,modal()); if(!b||b.disabled) throw new Error('confirm disabled: '+txt(modal()).slice(-220)); await click(b); await sleep(700);
 }
-async function output(machine,q){ await clickText(/^Ghi sản lượng$/,cardOf(machine)); await sleep(300); const m=modal(); const inp=[...m.querySelectorAll('input.mes-input')].find(i=>i.inputMode==='decimal'||i.type==='number'); nativeSet(inp,String(q)); await sleep(150); await click(findBtn(/^(Ghi|Lưu|Xác nhận)/,m)); await sleep(700); }
+async function output(machine,q){ { const si=doc.querySelector('[data-cc-search]'); if(si){ nativeSet(si,machine); await sleep(250); } } await clickText(/^Ghi sản lượng$/,cardOf(machine)); await sleep(300); const m=modal(); const inp=[...m.querySelectorAll('input.mes-input')].find(i=>i.inputMode==='decimal'||i.type==='number'); nativeSet(inp,String(q)); await sleep(150); await click(findBtn(/^(Ghi|Lưu|Xác nhận)/,m)); await sleep(700); }
 (async()=>{
   await sleep(300);
   JSON.parse(await A('return JSON.stringify(genMachineSeed())')).forEach(m=>db.__seed('machines',m.id,m));
