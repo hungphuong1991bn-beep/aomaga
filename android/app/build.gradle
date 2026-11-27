@@ -8,8 +8,10 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Số phiên bản do quy trình phát hành truyền vào (tag v1.2.3 → versionName 1.2.3, versionCode 1002003). Mặc định cho bản build tay.
-        versionCode (System.getenv("AMG_VERSION_CODE") ?: "1").toInteger()
-        versionName (System.getenv("AMG_VERSION_NAME") ?: "1.0.0")
+        def amgCode = (System.getenv("AMG_VERSION_CODE") ?: "1").trim()
+        def amgName = (System.getenv("AMG_VERSION_NAME") ?: "1.0.0").trim()
+        versionCode Integer.parseInt(amgCode ==~ /\d+/ ? amgCode : "1")
+        versionName amgName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
