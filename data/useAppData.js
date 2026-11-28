@@ -25,14 +25,23 @@ function useAppData() {
         if (unsub) unsub(); else Promise.resolve().then(() => unsub && unsub());
       }, () => resolve(true));
     });
+    // v59: CHỈ khởi tạo khi ĐÃ nhận bản đầy đủ từ máy chủ (không dựa vào bản lưu trên máy) — tránh gieo lên máy chủ thật chỉ vì thiết bị chưa kịp tải.
+    // Thiết bị đã từng đồng bộ (có bản lưu trên máy) → không khởi tạo gì và không chờ (mở được ngay cả khi mất mạng).
+    if (window.__isRtdb && window.__rtdbHasCache && window.__rtdbHasCache()) return;
+    if (window.__isRtdb && window.__rtdbWaitServer) { const confirmed = await window.__rtdbWaitServer(10000); if (!confirmed) return; }
     const batch = db.batch();
     let touched = false;
-    if (await isEmpty(FS.orders)) { SEED_ORDERS.forEach(o => { batch.set(db.collection(FS.orders).doc(o.id), o); touched = true; }); }
+    // Dữ liệu NỀN (danh mục máy) và tài khoản quản trị đầu tiên: chỉ tạo khi bộ sưu tập hoàn toàn trống, không bao giờ ghi đè.
     if (await isEmpty(FS.machines)) { genMachineSeed().forEach(m => { batch.set(db.collection(FS.machines).doc(m.id), m); touched = true; }); }
-    if (await isEmpty(FS.staff)) { SEED_STAFF.forEach(s => { batch.set(db.collection(FS.staff).doc(s.id), s); touched = true; }); }
-    if (await isEmpty(FS.scrap)) { SEED_SCRAP.forEach(s => { batch.set(db.collection(FS.scrap).doc(s.id), s); touched = true; }); }
     if (await isEmpty(FS.users)) {
       DEFAULT_USERS.forEach(u => { const { pwHash, ...profile } = u; batch.set(db.collection(FS.users).doc(u.username), profile); touched = true; });
+    }
+    // Dữ liệu MẪU (đơn hàng, nhân sự, phế liệu) KHÔNG còn tự gieo vào dữ liệu thật trên máy chủ dùng chung (v59).
+    // Chỉ chế độ tài khoản cục bộ một-máy (không có máy chủ chung) mới gieo để giao diện không trống; muốn nhập thủ công: Quản trị → "Nhập dữ liệu mẫu vào mục trống".
+    if (!window.__isRtdb) {
+      if (await isEmpty(FS.orders)) { SEED_ORDERS.forEach(o => { batch.set(db.collection(FS.orders).doc(o.id), o); touched = true; }); }
+      if (await isEmpty(FS.staff)) { SEED_STAFF.forEach(s => { batch.set(db.collection(FS.staff).doc(s.id), s); touched = true; }); }
+      if (await isEmpty(FS.scrap)) { SEED_SCRAP.forEach(s => { batch.set(db.collection(FS.scrap).doc(s.id), s); touched = true; }); }
     }
     if (touched) await batch.commit();
   }, []);

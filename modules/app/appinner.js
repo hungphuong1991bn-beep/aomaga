@@ -290,8 +290,7 @@ function AppInner() {
     const o2 = opts || {};
     await amgSafeUpdate(FS.orders, updated.id, cur => {
       if (cur.status === "completed") throw new Error("Đơn đã hoàn thành — chỉ xem được. Mở lại đơn ở tab Đơn hàng hoàn thành (cần quyền quản lý) trước khi sửa đơn/BOM.");
-      const merged = { ...cur };
-      Object.keys(updated).forEach(k => { if (AMG_ORDER_PROTECTED.indexOf(k) < 0) merged[k] = updated[k]; });
+      const merged = amgMergeOrderEdit(cur, updated, o2.baseEditor, currentUser);
       if (o2.overrideStages && updated.stages) merged.stages = updated.stages;
       return normalizeOrderStages(merged);
     });
@@ -506,6 +505,29 @@ function AppInner() {
       await db.collection(FS.attendance).doc(dayKey).set(dayData);
     }
   }
+  // v58: điểm danh theo kiểu đọc-sửa-ghi có điều kiện (ETag) — hai người điểm danh hai tổ cùng ngày không ghi đè nhau; có nhật ký thao tác
+  // Ghi một tài liệu-theo-ngày (điểm danh, lịch làm việc): đọc-sửa-ghi có điều kiện, có kiểm tra quyền và nhật ký
+  async function mutateDayDoc(col, auditType, dayKey, apply, summary) {
+    const chk = amgCheckWrite(window.__AMG_USER, col, "set", dayKey, {});
+    if (!chk.ok) throw new Error("Bạn không có quyền thực hiện thao tác này: " + chk.reason);
+    let done = false;
+    if (db && typeof db.casDoc === "function") {
+      try {
+        await db.casDoc(col, dayKey, cur => apply(Object.assign({}, cur || {})));
+        done = true;
+      } catch (e) { if (!e || e.code !== "no-etag") throw e; }
+    }
+    if (!done) {
+      const snap = await db.collection(col).doc(dayKey).get();
+      const has = snap && (typeof snap.exists === "function" ? snap.exists() : snap.exists);
+      const next = apply(has ? Object.assign({}, snap.data()) : {});
+      if (Object.keys(next).length === 0) await db.collection(col).doc(dayKey).delete();
+      else await db.collection(col).doc(dayKey).set(next);
+    }
+    audit(auditType, `${summary} — ngày ${dayKey}`, dayKey);
+  }
+  const handleAttendanceMutate = (dayKey, apply, summary) => mutateDayDoc(FS.attendance, "attendance_update", dayKey, apply, summary);
+  const handleScheduleMutate = (dayKey, apply, summary) => mutateDayDoc(FS.schedule, "schedule_update", dayKey, apply, summary);
   // v46: tài khoản thật (Firebase Auth hoặc băm cục bộ), chỉ Admin; lỗi được ném ra để biểu mẫu hiển thị
   async function handleAddUser(payload) {
     await amgCreateAccount(payload, data.users);
@@ -729,7 +751,12 @@ function AppInner() {
     onRestoreSeed: handleResetSeedData,
     onImport: handleImportStaff,
     attendance: data.attendance,
-    onAttendanceUpdate: handleAttendanceUpdate
+    onAttendanceUpdate: handleAttendanceUpdate,
+    onAttendanceMutate: handleAttendanceMutate,
+    onScheduleMutate: handleScheduleMutate,
+    extra,
+    auditLog: data.auditLog,
+    currentUser
   }), activeTab === "certificates" && /*#__PURE__*/React.createElement(CertificatesPage, {
     certificates: data.certificates,
     folders: data.certFolders,

@@ -3,6 +3,8 @@
    trong order.routing và được getApplicableStages/normalizeOrderStages/orderProgress đọc như bình thường. */
 
 const AMG_ORDER_PROTECTED = ["id", "stages", "finishedDone", "finishedShort", "status", "completedAt", "completedBy", "completionMode", "completionNote", "completedShort", "stageComplete", "statusHistory", "productionStartedAt", "lastCompletedAt", "lastCompletedBy", "lastCompletionSummary", "completionSummary", "openRunIds", "version", "createdAt", "createdBy", "updatedAt", "updatedBy"];
+// v59: các trường người dùng sửa trong biểu mẫu đơn (nhãn dùng khi báo xung đột). Chỉ những trường THỰC SỰ bị sửa so với lúc mở biểu mẫu mới được ghi lên đơn.
+const AMG_ORDER_EDIT_LABELS = { customer: "Khách hàng", materialCode: "Vật liệu", spec: "Quy cách", quantity: "Số lượng", unit: "Đơn vị", note: "Ghi chú", orderDate: "Ngày nhận", deliveryDate: "Ngày giao", priority: "Ưu tiên", inventory: "Tồn kho", routing: "Quy trình" };
 
 function amgStageMachineText(stageKey, machines) {
   const types = amgStageMachineTypes(stageKey);
@@ -21,6 +23,27 @@ function amgOrderBaseFromEditor(f, routing, user) {
   return base;
 }
 
+// v59: dạng "như biểu mẫu thấy" của một đơn (cùng cách chuẩn hóa với OrderEditor) — dùng để so bản mới nhất trên máy chủ với bản lúc mở biểu mẫu.
+function amgOrderEditorShape(order, user) {
+  const route = amgIsFlowOrder(order) ? amgOrderRoute(order) : [];
+  return amgOrderBaseFromEditor({ customer: order.customer || "", materialCode: order.materialCode || "", spec: order.spec || "", quantity: order.quantity ?? "", unit: amgOrderUnit(order), note: order.note || "", orderDate: order.orderDate || "", deliveryDate: order.deliveryDate || "", priority: order.priority || "normal", inventory: order.inventory || 0 }, route, user);
+}
+// v59: ghép bản sửa từ biểu mẫu lên bản MỚI NHẤT của đơn. `baseEditor` = bản chụp lúc mở biểu mẫu (cùng dạng với `updated`).
+// Trường người dùng không sửa → giữ bản mới nhất; trường người dùng sửa mà người khác cũng đã sửa khác đi → ném lỗi xung đột (không ghi đè âm thầm).
+function amgMergeOrderEdit(cur, updated, baseEditor, user) {
+  const merged = Object.assign({}, cur), same = (a, b) => JSON.stringify(a) === JSON.stringify(b), clash = [];
+  const curShape = baseEditor ? amgOrderEditorShape(cur, user) : null;
+  Object.keys(updated).forEach(k => {
+    if (AMG_ORDER_PROTECTED.indexOf(k) >= 0) return;
+    if (baseEditor && AMG_ORDER_EDIT_LABELS[k] && Object.prototype.hasOwnProperty.call(baseEditor, k)) {
+      if (same(baseEditor[k], updated[k])) return; // người dùng không sửa trường này
+      if (!same(curShape[k], baseEditor[k]) && !same(curShape[k], updated[k])) { clash.push(AMG_ORDER_EDIT_LABELS[k]); return; }
+    }
+    merged[k] = updated[k];
+  });
+  if (clash.length) { const e = new Error("Đơn này vừa được người khác sửa các trường: " + clash.join(", ") + ". Chưa có gì bị ghi đè. Hãy đóng biểu mẫu, mở lại để xem bản mới nhất rồi nhập lại thay đổi của bạn."); e.code = "version-conflict"; throw e; }
+  return merged;
+}
 /* ---------- Biểu mẫu thêm / sửa đơn ---------- */
 function OrderEditor({ mode, order, orders, runs, machines, onSave, onClose }) {
   const { askConfirm } = useDialog();
@@ -36,6 +59,7 @@ function OrderEditor({ mode, order, orders, runs, machines, onSave, onClose }) {
   const initialRoute = confirmedBefore ? amgOrderRoute(order) : [];
   const [f, setF] = useState(() => isNew ? { customer: "", code: "", materialCode: "", spec: "", quantity: "", unit: "kg", note: "", orderDate: amgTodayKey(), deliveryDate: "", priority: "normal", inventory: 0 }
     : { customer: order.customer || "", code: order.id, materialCode: order.materialCode || "", spec: order.spec || "", quantity: order.quantity ?? "", unit: amgOrderUnit(order), note: order.note || "", orderDate: order.orderDate || "", deliveryDate: order.deliveryDate || "", priority: order.priority || "normal", inventory: order.inventory || 0 });
+  const [f0] = useState(() => Object.assign({}, f)); // v59: bản gốc lúc MỞ biểu mẫu — để chỉ ghi các trường thật sự bị sửa
   const [routing, setRouting] = useState(initialRoute);
   const [customOrder, setCustomOrder] = useState(!isNew && initialRoute.join() !== STAGES.map(s => s.key).filter(k => initialRoute.includes(k)).join());
   const [step, setStep] = useState(1);
@@ -75,7 +99,7 @@ function OrderEditor({ mode, order, orders, runs, machines, onSave, onClose }) {
       if (warns.length && !(await askConfirm(warns.join("\n\n") + "\n\nTiếp tục lưu thay đổi?", { title: "Cảnh báo khi sửa đơn", confirmLabel: "Vẫn lưu" }))) return;
     }
     setBusy(true);
-    try { await onSave({ f, routing, isNew }); onClose(); } catch (e) { setErrs({ _all: e.message || String(e) }); setBusy(false); }
+    try { await onSave({ f, routing, isNew, base0: isNew ? null : { f: f0, routing: initialRoute } }); onClose(); } catch (e) { setErrs({ _all: e.message || String(e) }); setBusy(false); }
   }
   const fieldErr = k => errs[k] && rkh("div", { style: { color: COLORS.red, fontSize: FZ(12), marginTop: 3 } }, errs[k]);
   const fld = (label, k, props, hint) => rkh("div", { style: { marginBottom: 12 } },
@@ -290,7 +314,7 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
     const ws = XLSX.utils.json_to_sheet(data), wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Đơn hàng"); XLSX.writeFile(wb, "don-hang.xlsx");
   }
-  async function handleSave({ f, routing, isNew }) {
+  async function handleSave({ f, routing, isNew, base0 }) {
     const base = amgOrderBaseFromEditor(f, routing, currentUser);
     if (isNew) {
       const stages = {}; STAGES.forEach(s => { stages[s.key] = { done: 0, remain: 0 }; });
@@ -299,7 +323,7 @@ function OrdersPage({ orders, runs, entries, machines, auditLog, isAdmin, curren
       await onAdd(normalizeOrderStages(Object.assign({ id, stages, finishedDone: 0, finishedShort: 0, createdAt: now, createdBy: currentUser.fullName || "" }, base)));
       setQ(""); setFStatus("all");
     } else {
-      await onUpdate(Object.assign({ id: modal.order.id }, base));
+      await onUpdate(Object.assign({ id: modal.order.id }, base), base0 ? { baseEditor: amgOrderBaseFromEditor(base0.f, base0.routing, currentUser) } : undefined);
     }
   }
   function blockedDelete(ids) {

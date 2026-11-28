@@ -91,21 +91,61 @@ function HeaderClock() {
     h("span", { className: "mes-topbar-shift mes-clock-shift" }, shift.label));
 }
 // Trạng thái đồng bộ lấy từ lớp dữ liệu thật (SSE + hàng đợi ghi), không phải từ việc giao diện vừa vẽ xong.
+// v59: bấm vào chỉ báo để xem chi tiết (hàng đợi, lần đồng bộ cuối), xử lý xung đột, gửi lại thao tác bị từ chối. Vẫn chỉ MỘT chỉ báo đồng bộ toàn cục.
+function amgShowVal(v) { try { if (v === undefined) return "(trống)"; const t = typeof v === "string" ? v : JSON.stringify(v); return t.length > 60 ? t.slice(0, 57) + "…" : t; } catch (e) { return "?"; } }
+function SyncPanel({ st, v, onClose }) {
+  const h = React.createElement;
+  const [, bump] = useState(0);
+  const api = window;
+  const conflicts = api.__rtdbConflicts ? api.__rtdbConflicts() : [];
+  const failed = api.__rtdbFailed ? api.__rtdbFailed() : [];
+  const dev = api.__rtdbDevice ? api.__rtdbDevice() : null;
+  const hm = ms => { if (!ms) return "—"; const d = new Date(ms), p = n => String(n).padStart(2, "0"); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
+  const row = (k, val) => h("div", { key: k, style: { display: "flex", justifyContent: "space-between", gap: 12, padding: "3px 0", fontSize: 12 } }, h("span", { style: { color: "var(--c-faint, #64748b)" } }, k), h("b", null, val));
+  const btn = (label, fn, key) => h("button", { key, onClick: () => { try { fn(); } catch (e) {} bump(n => n + 1); }, className: "mes-btn", style: { padding: "3px 8px", fontSize: 11 } }, label);
+  return h("div", { className: "mes-syncpanel", role: "dialog", "aria-label": "Chi tiết đồng bộ", "data-testid": "sync-panel" },
+    h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } }, h("b", { style: { fontSize: 13 } }, "Trạng thái đồng bộ"), h("button", { onClick: onClose, "aria-label": "Đóng", className: "mes-iconbtn" }, "✕")),
+    row("Trạng thái", v.label), row("Đồng bộ lần cuối", hm(st.lastSync)), row("Đang chờ gửi", String(st.pending || 0)), row("Đã gửi (phiên này)", String(st.sent || 0)),
+    row("Bị máy chủ từ chối", String(st.failed || 0)), row("Xung đột cần kiểm tra", String(st.conflicts || 0)), dev ? row("Thiết bị này", dev.label + " · " + String(dev.id).slice(-6)) : null,
+    conflicts.length ? h("div", { style: { marginTop: 8, borderTop: "1px solid var(--c-border2, rgba(0,0,0,.1))", paddingTop: 6 } },
+      h("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 4 } }, "Xung đột — máy chủ đang giữ giá trị của người khác, chưa bị ghi đè"),
+      conflicts.slice(0, 20).map(c => h("div", { key: c.id, style: { fontSize: 12, padding: "4px 0", borderBottom: "1px dashed var(--c-border2, rgba(0,0,0,.1))" } },
+        h("div", null, h("b", null, c.col + "/" + c.docId), " · trường ", h("b", null, c.field)),
+        h("div", null, "Của bạn: ", amgShowVal(c.mine)), h("div", null, "Trên máy chủ: ", amgShowVal(c.theirs)),
+        h("div", { style: { display: "flex", gap: 6, marginTop: 3 } }, btn("Giữ bản máy chủ", () => api.__rtdbResolveConflict(c.id, "theirs"), "t"), btn("Dùng giá trị của tôi", () => api.__rtdbResolveConflict(c.id, "mine"), "m"))))) : null,
+    failed.length ? h("div", { style: { marginTop: 8, borderTop: "1px solid var(--c-border2, rgba(0,0,0,.1))", paddingTop: 6 } },
+      h("div", { style: { fontSize: 12, fontWeight: 700, marginBottom: 4 } }, "Thao tác bị máy chủ từ chối (đang được giữ lại)"),
+      failed.slice(0, 20).map(f => h("div", { key: f.id, style: { fontSize: 12, padding: "4px 0", borderBottom: "1px dashed var(--c-border2, rgba(0,0,0,.1))" } },
+        h("div", null, f.targets), h("div", { style: { opacity: .75 } }, f.reason + " · " + hm(f.ts)),
+        h("div", { style: { display: "flex", gap: 6, marginTop: 3 } }, btn("Gửi lại", () => api.__rtdbRetryFailed(f.id), "r"), btn("Bỏ", () => api.__rtdbDiscardFailed(f.id), "d"))))) : null,
+    h("div", { style: { marginTop: 8 } }, btn("Đồng bộ lại ngay", () => api.__rtdbResync && api.__rtdbResync(), "s")));
+}
 function SyncBadge() {
   const h = React.createElement;
   const [st, setSt] = useState(() => Object.assign({}, window.__rtdbStatus || {}));
   const [, tick] = useState(0);
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
   useEffect(() => {
     if (!window.__rtdbSubscribe) return;
     setSt(Object.assign({}, window.__rtdbStatus));
     return window.__rtdbSubscribe(x => setSt(Object.assign({}, x)));
   }, []);
   useEffect(() => { if (!st.lastRemote) return; const id = setTimeout(() => tick(n => n + 1), 4100); return () => clearTimeout(id); }, [st.lastRemote]);
+  useEffect(() => {
+    if (!open) return;
+    const away = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const esc = e => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", away); document.addEventListener("keydown", esc);
+    return () => { document.removeEventListener("mousedown", away); document.removeEventListener("keydown", esc); };
+  }, [open]);
   const v = amgSyncView(st, Date.now());
   const col = { ok: COLORS.green, info: COLORS.blue, warn: COLORS.amber, err: COLORS.red }[v.tone];
-  return h("span", { className: "mes-sync mes-sync--" + v.key, title: v.title, role: "status", "aria-live": "polite", "data-sync": v.key, style: { color: col, borderColor: col + "55", background: col + "14" } },
-    h("span", { className: "mes-sync-dot" + (v.key === "syncing" || v.key === "connecting" || v.key === "updated" ? " pulse-dot" : ""), style: { background: col } }),
-    h("span", { className: "mes-sync-text" }, v.label));
+  return h("span", { ref: wrapRef, style: { position: "relative", display: "inline-flex", flexShrink: 0 } },
+    h("span", { className: "mes-sync mes-sync--" + v.key, title: v.title, role: "status", "aria-live": "polite", "data-sync": v.key, onClick: () => setOpen(o => !o), style: { cursor: "pointer", color: col, borderColor: col + "55", background: col + "14" } },
+      h("span", { className: "mes-sync-dot" + (v.key === "syncing" || v.key === "connecting" || v.key === "updated" ? " pulse-dot" : ""), style: { background: col } }),
+      h("span", { className: "mes-sync-text" }, v.label)),
+    open ? h(SyncPanel, { st, v, onClose: () => setOpen(false) }) : null);
 }
 // Tìm kiếm toàn hệ thống: Ctrl/⌘+K mở, ESC đóng, ↑↓ chọn, Enter mở đúng tab + đúng bản ghi.
 function GlobalSearch({ index, onPick }) {

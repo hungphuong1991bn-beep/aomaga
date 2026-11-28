@@ -72,6 +72,8 @@ function amgSyncView(s, nowMs) {
   s = s || {}; const now = nowMs || Date.now();
   const hm = ms => { const d = new Date(ms), p = n => String(n).padStart(2, "0"); return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
   if (s.readError || s.writeError || s.state === "error") return { key: "error", label: "Có lỗi đồng bộ", tone: "err", title: s.readError || s.writeError || "Không đọc được dữ liệu từ máy chủ" };
+  if (s.conflicts > 0) return { key: "conflict", label: `Cần kiểm tra ${s.conflicts} xung đột`, tone: "warn", title: "Có " + s.conflicts + " thay đổi trùng trường với người khác. Máy chủ giữ nguyên, chưa ghi đè — bấm để đối chiếu." };
+  if (s.failed > 0) return { key: "error", label: `${s.failed} thao tác bị từ chối`, tone: "err", title: "Máy chủ từ chối " + s.failed + " thao tác. Thao tác được giữ lại — bấm để xem và gửi lại." };
   if (s.state === "offline") return { key: "offline", label: "Mất kết nối" + (s.pending ? ` (${s.pending} chờ gửi)` : ""), tone: "warn", title: "Đang dùng dữ liệu lưu trên máy. Sẽ tự đồng bộ khi có mạng." };
   if (s.state === "connecting" || !s.lastSync && s.state !== "online") return { key: "connecting", label: "Đang kết nối", tone: "info", title: "Đang kết nối máy chủ dữ liệu" };
   if (s.pending > 0) return { key: "syncing", label: `Đang đồng bộ (${s.pending})`, tone: "info", title: "Có thay đổi đang chờ gửi lên máy chủ" };

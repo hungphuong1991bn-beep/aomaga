@@ -129,6 +129,7 @@ function GlobalStyle() {
     .mes-clock-shift{font-size:var(--fs-xs);font-weight:600;padding:3px 10px;border-radius:999px;background:var(--c-panel2);border:1px solid var(--c-border);color:var(--c-dim);white-space:nowrap;}
     .mes-sync{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid;border-radius:999px;font-size:var(--fs-xs);font-weight:600;white-space:nowrap;flex-shrink:0;}
     .mes-sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .mes-syncpanel{position:absolute;top:calc(100% + 8px);right:0;z-index:9000;width:min(360px,92vw);max-height:70vh;overflow:auto;background:var(--c-panel,#fff);color:var(--c-text,inherit);border:1px solid var(--c-border2,rgba(0,0,0,.15));border-radius:10px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.22);}
     .mes-gsearch{position:relative;flex:1 1 auto;max-width:560px;min-width:0;margin:0 auto;}
     .mes-gsearch-box{display:flex;align-items:center;gap:8px;height:36px;padding:0 10px;border:1px solid var(--c-border);border-radius:10px;background:var(--c-panel2);position:relative;z-index:95;}
     .mes-gsearch-box.is-open{background:var(--c-panel);border-color:var(--c-copper);box-shadow:0 0 0 3px rgba(214,17,28,.12);}
