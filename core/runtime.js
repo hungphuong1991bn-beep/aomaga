@@ -48,13 +48,19 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
   var ROOT = "amg";
   var CACHE_KEY = "amg_mes_rtdb_cache_v1";
   var QUEUE_KEY = "amg_mes_rtdb_queue_v1";
+  var FAILED_KEY = "amg_mes_rtdb_failed_v1";      // v59: thao tác máy chủ từ chối (400) — KHÔNG bỏ mất, giữ để xem/gửi lại
+  var CONFLICT_KEY = "amg_mes_rtdb_conflicts_v1"; // v59: trường bị hai người cùng sửa khác nhau — giữ giá trị của người sửa sau để đối chiếu
+  var DEVICE_KEY = "amg_mes_device_v1";
+  // Trường "dấu vết" (không phải dữ liệu nghiệp vụ): hai người cùng ghi thì lấy lần ghi sau, KHÔNG coi là xung đột.
+  var SOFT_FIELDS = { updatedAt: 1, updatedBy: 1, version: 1, lastEditedBy: 1 };
   var NO_CACHE = { certificates: true }; // ảnh/PDF chứng chỉ quá nặng cho localStorage
   var ROOT_URL = BASE + "/" + ROOT + ".json";
 
   /* ---------- Trạng thái kết nối + thanh thông báo ---------- */
-  var status = { state: "connecting", pending: 0, lastSync: 0, lastRemote: 0, readError: "", writeError: "" };
+  var status = { state: "connecting", pending: 0, lastSync: 0, lastRemote: 0, readError: "", writeError: "", conflicts: 0, failed: 0, sent: 0, device: "" };
   var statusSubs = [];
   var ready = false, readyCbs = [];
+  var serverConfirmed = false, serverCbs = []; // true sau khi đã nhận bản đầy đủ TỪ MÁY CHỦ (không phải chỉ bản lưu trên máy)
   var bannerEl = null;
   function updateBanner() {
     try {
@@ -62,7 +68,6 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
       if (!ready && status.state !== "error") msg = "Đang kết nối máy chủ dữ liệu… (lần đầu cần có mạng)";
       else if (status.readError) msg = status.readError;
       else if (status.writeError) msg = status.writeError;
-      else if (status.state === "offline") msg = "Mất kết nối — đang dùng dữ liệu lưu trên máy" + (status.pending ? " (" + status.pending + " thay đổi chờ gửi)" : "") + ". Sẽ tự đồng bộ khi có mạng.";
       if (!document.body) return;
       if (!msg) { if (bannerEl) { bannerEl.remove(); bannerEl = null; } return; }
       if (!bannerEl) {
@@ -135,55 +140,212 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
     updateBanner();
   }
 
-  /* ---------- Hàng đợi ghi ---------- */
-  var queue = loadJson(QUEUE_KEY, []);
-  if (!Array.isArray(queue)) queue = [];
+  /* ---------- Thiết bị + định danh thao tác (v59) ---------- */
+  function newId(prefix) { return prefix + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8); }
+  function hasOwn(o, k) { return o != null && Object.prototype.hasOwnProperty.call(o, k); }
+  function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  var DEV = (function () {
+    var id = null;
+    try { id = localStorage.getItem(DEVICE_KEY); } catch (e) {}
+    if (!id) { id = newId("dev_"); try { localStorage.setItem(DEVICE_KEY, id); } catch (e) {} }
+    var ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+    var label = /Electron/i.test(ua) ? "Windows (EXE)" : (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) ? "Android (APK)" : "Web";
+    return { id: id, label: label };
+  })();
+  status.device = DEV.id;
+  function curUser() { try { var u = window.__AMG_USER; return u ? (u.username || u.fullName || "") : ""; } catch (e) { return ""; } }
+
+  /* ---------- Hàng đợi ghi (bền vững qua đóng/mở ứng dụng) ----------
+     Mỗi mục có: id (duy nhất), ts (lúc tạo), user, dev (thiết bị), kind:
+       "patch" — ghi nguyên tài liệu theo đường dẫn (set/delete/add): gửi một PATCH nhiều đường dẫn (nguyên tử). Gửi lại nhiều lần cho cùng kết quả (idempotent).
+       "merge" — chỉ các TRƯỜNG đã đổi (ops[].fields) kèm giá trị gốc lúc sửa (ops[].base): lúc gửi đọc bản mới nhất từ máy chủ rồi ghép theo từng trường (so sánh 3 chiều);
+                 trường bị người khác sửa khác đi → ghi nhận xung đột, KHÔNG ghi đè. Mục định dạng cũ ({w}) được nhận tiếp như "patch". */
+  function loadList(key) { var v = loadJson(key, []); return Array.isArray(v) ? v : []; }
+  var queue = loadList(QUEUE_KEY).map(function (it) {
+    if (!it || typeof it !== "object") return null;
+    if (!it.kind) it.kind = it.ops ? "merge" : "patch";
+    if (it.kind === "patch" && (!it.w || typeof it.w !== "object")) return null;
+    if (it.kind === "merge" && !Array.isArray(it.ops)) return null;
+    if (!it.id) it.id = newId("q_");
+    if (!it.ts) it.ts = Date.now();
+    if (!it.dev) it.dev = DEV.id;
+    if (it.user === undefined) it.user = "";
+    return it;
+  }).filter(Boolean);
+  var failedOps = loadList(FAILED_KEY);
+  var conflicts = loadList(CONFLICT_KEY);
   var inflight = false, retryTimer = null, retryDelay = 3000;
-  status.pending = queue.length;
+  status.pending = queue.length; status.failed = failedOps.length; status.conflicts = conflicts.length;
+  var pendingCache = null;
+  function pendingSet() {
+    if (pendingCache) return pendingCache;
+    pendingCache = {};
+    queue.forEach(function (it) {
+      if (it.kind === "merge") it.ops.forEach(function (o) { pendingCache[pathOf(o.col, o.id)] = 1; });
+      else Object.keys(it.w || {}).forEach(function (k) { pendingCache[k] = 1; });
+    });
+    return pendingCache;
+  }
+  function saveList(key, list) { try { localStorage.setItem(key, JSON.stringify(list)); } catch (e) { console.warn("Không thể lưu " + key + ":", e.message); } }
   function saveQueue() {
-    try { localStorage.setItem(QUEUE_KEY, JSON.stringify(queue)); } catch (e) { console.warn("Không thể lưu hàng đợi:", e.message); }
+    pendingCache = null;
+    saveList(QUEUE_KEY, queue);
     setStatus({ pending: queue.length });
   }
-  function isPending(p) {
-    for (var i = 0; i < queue.length; i++) if (Object.prototype.hasOwnProperty.call(queue[i].w, p)) return true;
-    return false;
-  }
+  function saveFailed() { saveList(FAILED_KEY, failedOps); setStatus({ failed: failedOps.length }); }
+  function saveConflicts() { saveList(CONFLICT_KEY, conflicts); setStatus({ conflicts: conflicts.length }); }
+  function isPending(p) { return pendingSet()[p] === 1; }
   function scheduleRetry() {
     if (retryTimer) return;
-    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, retryDelay);
+    var d = Math.round(retryDelay * (0.8 + Math.random() * 0.4)); // thêm độ lệch ngẫu nhiên để nhiều thiết bị không cùng gửi một lúc
+    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, d);
     retryDelay = Math.min(retryDelay * 2, 30000);
+  }
+  function moveToFailed(item, reason) {
+    failedOps.push({ id: item.id, ts: item.ts, user: item.user, dev: item.dev, kind: item.kind, w: item.w, ops: item.ops, reason: reason, failedAt: Date.now() });
+    saveFailed();
+    console.error("RTDB từ chối một thay đổi — đã giữ lại để xem/gửi lại:", reason, item);
+    setStatus({ writeError: "" });
+  }
+  function itemPathsDesc(it) {
+    return it.kind === "merge" ? it.ops.map(function (o) { return o.col + "/" + o.id; }).join(", ") : Object.keys(it.w || {}).join(", ");
+  }
+  function retryErr(msg, denied) { var e = new Error(msg); e.retry = true; e.denied = !!denied; return e; }
+
+  /* Gửi MỘT thao tác "merge" cho một tài liệu: đọc bản mới nhất + ETag, ghép từng trường, ghi có điều kiện (if-match). */
+  async function applyMergeOp(item, op) {
+    var path = pathOf(op.col, op.id), url = BASE + "/" + ROOT + "/" + path + ".json";
+    for (var n = 0; n < 6; n++) {
+      var r;
+      try { r = await fetch(url, { headers: { "X-Firebase-ETag": "true" } }); } catch (e) { throw retryErr("net"); }
+      if (r.status === 401 || r.status === 403) throw retryErr("denied", true);
+      if (!r.ok) throw retryErr("srv" + r.status);
+      var etag = r.headers && typeof r.headers.get === "function" ? r.headers.get("ETag") : null;
+      var rawDoc = await r.json();
+      var cur = decodeDoc(rawDoc);
+      var next = cur ? Object.assign({}, cur) : {};
+      var found = [], applied = 0;
+      if (!cur && op.existed) { // tài liệu đã bị người khác xóa → không "hồi sinh" bản chỉ có vài trường
+        Object.keys(op.fields).forEach(function (k) { found.push({ field: k, mine: op.fields[k], theirs: "(bản ghi đã bị xóa)", base: op.base ? op.base[k] : undefined }); });
+      } else {
+        Object.keys(op.fields).forEach(function (k) {
+          var mine = op.fields[k], curVal = cur && hasOwn(cur, k) ? cur[k] : undefined, bs = op.base ? op.base[k] : undefined;
+          if (same(curVal, mine)) return;                                  // máy chủ đã có đúng giá trị này
+          if (SOFT_FIELDS[k] || !cur || same(curVal, bs)) { next[k] = mine; applied++; return; } // máy chủ chưa đổi so với lúc sửa → áp dụng
+          found.push({ field: k, mine: mine, theirs: curVal, base: bs });  // người khác đã sửa trường này khác đi → xung đột
+        });
+      }
+      if (applied > 0) {
+        var json = JSON.stringify(sanitize(next));
+        var headers = { "Content-Type": "application/json" };
+        if (etag) headers["if-match"] = etag;
+        var w;
+        try { w = await fetch(url, { method: "PUT", headers: headers, body: JSON.stringify({ d: json, t: Date.now(), v: ((rawDoc && rawDoc.v) || 0) + 1, by: item.user || "", dev: item.dev || DEV.id }) }); }
+        catch (e) { throw retryErr("net"); }
+        if (w.status === 412) continue;                                   // có người ghi xen vào → đọc lại và ghép lại
+        if (w.status === 400) return { failed: "Máy chủ từ chối (400)", found: found };
+        if (w.status === 401 || w.status === 403) throw retryErr("denied", true);
+        if (!w.ok) throw retryErr("srv" + w.status);
+        setLocalDoc(op.col, op.id, JSON.parse(json), json);
+      } else if (cur) {
+        setLocalDoc(op.col, op.id, cur, rawDoc.d);                        // không có gì để ghi: màn hình theo đúng bản trên máy chủ
+      }
+      return { found: found };
+    }
+    throw retryErr("busy");
+  }
+  function setLocalDoc(col, id, obj, json) {
+    var colData = data[col] = data[col] || {};
+    colData[id] = obj; raws[pathOf(col, id)] = json;
+    overlayPending(col, id);
+    dirty[col] = 1; flushDirty();
+  }
+  // Sau khi lấy bản máy chủ, phủ lại các thay đổi cục bộ còn đang chờ gửi (nếu có) để màn hình không "nhảy lùi".
+  function overlayPending(col, id) {
+    var p = pathOf(col, id), colData = data[col];
+    for (var i = 1; i < queue.length; i++) {
+      var it = queue[i];
+      if (it.kind === "merge") it.ops.forEach(function (o) { if (o.col === col && o.id === id && colData[id]) Object.assign(colData[id], o.fields); });
+      else if (hasOwn(it.w, p)) { var d = decodeDoc(it.w[p]); if (d) colData[id] = d; else delete colData[id]; }
+    }
+  }
+  function recordConflicts(item, op, found) {
+    if (!found.length) return;
+    found.forEach(function (c) {
+      conflicts.push({ id: newId("cf_"), col: op.col, docId: op.id, field: c.field, mine: c.mine, theirs: c.theirs, base: c.base, ts: Date.now(), user: item.user, dev: item.dev, opTs: item.ts });
+    });
+    saveConflicts();
+    // nhật ký (append-only) — mỗi xung đột một dòng, mã cố định theo thao tác nên gửi lại không tạo dòng trùng
+    var w = {};
+    found.forEach(function (c) {
+      var aid = "SYNC-CF-" + item.id + "-" + op.col + "-" + op.id + "-" + c.field;
+      var entry = { id: aid, type: "sync_conflict", ts: new Date().toISOString(), user: item.user || "", targetId: op.id,
+        detail: "Xung đột đồng bộ " + op.col + "/" + op.id + " — trường \"" + c.field + "\": giá trị của " + (item.user || "người dùng") + " (" + JSON.stringify(c.mine) + ") khác giá trị đã có trên máy chủ (" + JSON.stringify(c.theirs) + "). Máy chủ giữ nguyên, chờ đối chiếu." };
+      w[pathOf("auditLog", aid)] = { d: JSON.stringify(entry), t: Date.now() };
+    });
+    queue.splice(1, 0, { id: newId("q_"), ts: Date.now(), user: item.user, dev: item.dev, kind: "patch", w: w });
+  }
+  async function sendItem(item) {
+    if (item.kind === "merge") {
+      while (item.ops.length) {
+        var op = item.ops[0];
+        var res = await applyMergeOp(item, op);
+        if (res.failed) {
+          failedOps.push({ id: newId("fl_"), ts: item.ts, user: item.user, dev: item.dev, kind: "merge", ops: [op], reason: res.failed, failedAt: Date.now() });
+          saveFailed();
+        }
+        item.ops.shift();
+        recordConflicts(item, op, res.found || []);
+        saveQueue();
+      }
+      return;
+    }
+    var r;
+    try { r = await fetch(ROOT_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.w) }); } catch (e) { throw retryErr("net"); }
+    if (r.ok) return;
+    if (r.status === 400) { moveToFailed(item, "Máy chủ từ chối (400)"); return; }
+    throw retryErr(r.status === 401 || r.status === 403 ? "denied" : "srv" + r.status, r.status === 401 || r.status === 403);
   }
   function flush() {
     if (inflight || !queue.length) return;
     inflight = true;
     var item = queue[0];
-    fetch(ROOT_URL, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(item.w) }).then(function (r) {
+    sendItem(item).then(function () {
       inflight = false;
-      if (r.ok) {
-        queue.shift(); saveQueue(); retryDelay = 3000;
-        setStatus({ writeError: "", lastSync: Date.now(), state: status.state === "offline" ? "online" : status.state }); // ghi thành công = máy chủ đang liên lạc được
-        flush();
-      } else if (r.status === 400) {
-        console.error("RTDB từ chối một thay đổi (400) — bỏ qua:", item.w);
-        queue.shift(); saveQueue();
-        setStatus({ writeError: "Máy chủ từ chối một thay đổi (dữ liệu không hợp lệ)." });
-        flush();
-      } else {
-        setStatus({ writeError: (r.status === 401 || r.status === 403)
-          ? "Máy chủ từ chối ghi dữ liệu (kiểm tra Rules của Realtime Database). Thay đổi được giữ trên máy và sẽ gửi lại."
-          : "Lỗi máy chủ " + r.status + " — sẽ thử lại." });
-        scheduleRetry();
-      }
-    }).catch(function () {
+      var i = queue.indexOf(item); if (i >= 0) queue.splice(i, 1);
+      saveQueue(); retryDelay = 3000;
+      setStatus({ writeError: "", sent: status.sent + 1, lastSync: Date.now(), state: status.state === "offline" ? "online" : status.state }); // ghi thành công = máy chủ đang liên lạc được
+      flush();
+    }).catch(function (e) {
       inflight = false;
-      if (!navigator.onLine) setStatus({ state: "offline" });
+      if (e && e.retry) {
+        if (e.denied) setStatus({ writeError: "Máy chủ từ chối ghi dữ liệu (kiểm tra Rules của Realtime Database). Thay đổi được giữ trên máy và sẽ gửi lại." });
+        else if (!navigator.onLine) setStatus({ state: "offline" });
+        else if (/^srv/.test(e.message)) setStatus({ writeError: "Lỗi máy chủ " + e.message.slice(3) + " — sẽ thử lại." });
+      } else { console.error("Lỗi gửi hàng đợi:", e); setStatus({ writeError: "Lỗi đồng bộ không xác định — thay đổi được giữ trên máy và sẽ thử lại." }); }
       scheduleRetry();
     });
   }
-  function enqueue(w) {
+  function newItem(kind, extra) { return Object.assign({ id: newId("q_"), ts: Date.now(), user: curUser(), dev: DEV.id, kind: kind }, extra); }
+  function canCoalesce(last) { return last && !(inflight && queue.length === 1) && last.dev === DEV.id && last.user === curUser(); }
+  function enqueuePatch(w) {
     var last = queue[queue.length - 1];
-    if (last && !(inflight && queue.length === 1)) Object.assign(last.w, w); // gộp các ghi liên tiếp (mục đang gửi thì không gộp)
-    else queue.push({ w: w });
+    if (canCoalesce(last) && last.kind === "patch") Object.assign(last.w, w); // gộp các ghi liên tiếp (mục đang gửi thì không gộp)
+    else queue.push(newItem("patch", { w: w }));
+    saveQueue();
+    flush();
+  }
+  function enqueueMerge(ops) {
+    var last = queue[queue.length - 1];
+    if (canCoalesce(last) && last.kind === "merge") {
+      ops.forEach(function (o) {
+        var prev = last.ops.length ? last.ops[last.ops.length - 1] : null;
+        if (prev && prev.col === o.col && prev.id === o.id) { // cùng tài liệu, liền nhau: giữ giá trị gốc đầu tiên, giá trị mới cuối cùng
+          Object.keys(o.base).forEach(function (k) { if (!hasOwn(prev.base, k) && !hasOwn(prev.fields, k)) prev.base[k] = o.base[k]; });
+          Object.assign(prev.fields, o.fields);
+        } else last.ops.push(o);
+      });
+    } else queue.push(newItem("merge", { ops: ops }));
     saveQueue();
     flush();
   }
@@ -253,7 +415,10 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
     var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
     handle(m.path || "/", m.data, isPatch);
     flushDirty();
-    if (!isPatch) { setStatus({ state: "online", readError: "", lastSync: Date.now() }); markReady(); }
+    if (!isPatch) {
+      setStatus({ state: "online", readError: "", lastSync: Date.now() }); markReady();
+      if (!serverConfirmed) { serverConfirmed = true; var sc = serverCbs; serverCbs = []; sc.forEach(function (f) { try { f(true); } catch (e) {} }); }
+    }
   }
   function onDenied() {
     setStatus({ state: "error", readError: "Máy chủ từ chối đọc dữ liệu (kiểm tra Rules của Realtime Database)." });
@@ -279,7 +444,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
       }
     };
   }
-  window.addEventListener("online", function () { retryDelay = 3000; flush(); if (!es || es.readyState === 2) connect(); else if (es.readyState === 1) setStatus({ state: "online" }); });
+  window.addEventListener("online", function () { retryDelay = 3000; if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } flush(); connect(); }); // nối lại để nhận bản đầy đủ mới nhất (không bỏ sót thay đổi trong lúc mất mạng)
   window.addEventListener("offline", function () { setStatus({ state: "offline" }); });
   document.addEventListener("visibilitychange", function () { if (!document.hidden && !es) connect(); });
   // Đã từng đồng bộ trước đó → sau 8 giây chưa kết nối được vẫn cho dùng bản lưu trên máy (không gieo dữ liệu mẫu vì các bộ sưu tập không trống).
@@ -287,6 +452,36 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
   connect();
   flush();
   // Nút "Đồng bộ" ở thanh trên: nối lại luồng đọc và gửi ngay hàng đợi ghi (không tải lại toàn bộ dữ liệu bằng tay)
+  window.__rtdbServerConfirmed = function () { return serverConfirmed; };
+  window.__rtdbHasCache = function () { return hadCache; };
+  window.__rtdbWaitServer = function (ms) { return new Promise(function (res) { if (serverConfirmed) return res(true); serverCbs.push(res); setTimeout(function () { res(serverConfirmed); }, ms || 10000); }); };
+  window.__rtdbDevice = function () { return { id: DEV.id, label: DEV.label }; };
+  window.__rtdbQueueInfo = function () { return { pending: queue.length, failed: failedOps.length, conflicts: conflicts.length, sent: status.sent, items: queue.map(function (it) { return { id: it.id, ts: it.ts, user: it.user, dev: it.dev, kind: it.kind, targets: itemPathsDesc(it) }; }) }; };
+  window.__rtdbConflicts = function () { return conflicts.map(function (c) { return Object.assign({}, c); }); };
+  window.__rtdbFailed = function () { return failedOps.map(function (f) { return { id: f.id, ts: f.ts, user: f.user, dev: f.dev, kind: f.kind, reason: f.reason, targets: itemPathsDesc(f) }; }); };
+  // Xử lý xung đột: "theirs" = giữ giá trị trên máy chủ (bỏ giá trị của mình); "mine" = ghi giá trị của mình (chỉ thành công nếu máy chủ chưa đổi tiếp)
+  window.__rtdbResolveConflict = function (id, choice) {
+    var i = conflicts.findIndex(function (c) { return c.id === id; }); if (i < 0) return false;
+    var c = conflicts[i];
+    if (choice === "mine") {
+      var f = {}; f[c.field] = c.mine; var b = {}; if (c.theirs !== undefined && c.theirs !== "(bản ghi đã bị xóa)") b[c.field] = c.theirs;
+      var colData = data[c.col] = data[c.col] || {};
+      if (colData[c.docId]) { colData[c.docId][c.field] = c.mine; saveCacheSoon(); notify(c.col); }
+      enqueueMerge([{ col: c.col, id: c.docId, fields: f, base: b, existed: true }]);
+    }
+    conflicts.splice(i, 1); saveConflicts();
+    return true;
+  };
+  window.__rtdbRetryFailed = function (id) {
+    var i = failedOps.findIndex(function (f) { return f.id === id; }); if (i < 0) return false;
+    var f = failedOps.splice(i, 1)[0]; saveFailed();
+    var it = newItem(f.kind, f.kind === "merge" ? { ops: f.ops } : { w: f.w }); it.ts = f.ts || it.ts; it.user = f.user || it.user; it.dev = f.dev || it.dev;
+    queue.push(it); saveQueue(); flush(); return true;
+  };
+  window.__rtdbDiscardFailed = function (id) {
+    var i = failedOps.findIndex(function (f) { return f.id === id; }); if (i < 0) return false;
+    failedOps.splice(i, 1); saveFailed(); return true;
+  };
   window.__rtdbResync = function () { retryDelay = 3000; if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } flush(); connect(); };
 
   /* ---------- API tương thích Firestore ---------- */
@@ -302,23 +497,42 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
   function genId() { return "id_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9); }
 
   function commitOps(ops) {
-    var w = {}, touched = {};
+    var touched = {}, groups = [];
+    function group(kind) {
+      var g = groups[groups.length - 1];
+      if (!g || g.kind !== kind) { g = { kind: kind, w: {}, ops: [] }; groups.push(g); }
+      return g;
+    }
     ops.forEach(function (op) {
       var col = op.col, id = op.id, p = pathOf(col, id);
       var colData = data[col] = data[col] || {};
-      if (op.type === "delete") { delete colData[id]; delete raws[p]; w[p] = null; }
-      else {
-        var clean = sanitize(op.data);
-        var next = (op.type === "update" || op.merge) ? Object.assign({}, colData[id] || {}, clean) : clean;
-        var json = JSON.stringify(next);
+      if (op.type === "delete") { delete colData[id]; delete raws[p]; group("patch").w[p] = null; touched[col] = 1; return; }
+      var clean = sanitize(op.data);
+      var existed = colData[id] !== undefined, local = colData[id] || {};
+      if (op.type === "update" || op.merge) {
+        // v59: chỉ gửi những trường THỰC SỰ đổi so với bản đang hiển thị; mỗi trường mang theo giá trị gốc để so 3 chiều khi gửi.
+        var fields = {}, base = {}, hard = 0, any = 0;
+        Object.keys(clean).forEach(function (k) {
+          var nv = clean[k];
+          if (existed && hasOwn(local, k) && same(local[k], nv)) return;
+          fields[k] = nv; any++;
+          if (existed && hasOwn(local, k)) base[k] = local[k];
+          if (!SOFT_FIELDS[k]) hard++;
+        });
+        if (existed && (!any || !hard)) return; // không đổi gì có ý nghĩa → không ghi, không phát tín hiệu cho thiết bị khác
+        var next = Object.assign({}, local, clean), json = JSON.stringify(next);
         colData[id] = JSON.parse(json); raws[p] = json;
-        w[p] = { d: json, t: Date.now() };
+        group("merge").ops.push({ col: col, id: id, fields: fields, base: base, existed: existed });
+      } else {
+        var json2 = JSON.stringify(clean);
+        colData[id] = JSON.parse(json2); raws[p] = json2;
+        group("patch").w[p] = { d: json2, t: Date.now() };
       }
       touched[col] = 1;
     });
     saveCacheSoon();
     Object.keys(touched).forEach(notify);
-    enqueue(w);
+    groups.forEach(function (g) { if (g.kind === "merge") enqueueMerge(g.ops); else enqueuePatch(g.w); });
   }
 
   function makeSnapshot(docsObj, opts) {
@@ -399,7 +613,7 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
       var t0 = Date.now();
       (function poll() {
         if (!queue.length && !inflight) return res();
-        if (Date.now() - t0 > ms) return rej(new Error("Mạng chậm hoặc mất kết nối — các thay đổi trước đó chưa gửi xong. Hãy thử lại khi có mạng."));
+        if (Date.now() - t0 > ms) { var ne = new Error("Mạng chậm hoặc mất kết nối — các thay đổi trước đó chưa gửi xong. Hãy thử lại khi có mạng."); ne.code = "network"; return rej(ne); }
         setTimeout(poll, 40);
       })();
     });
@@ -408,22 +622,23 @@ const AMG_RTDB_URL = "https://quanlysx-9e9ad-default-rtdb.asia-southeast1.fireba
     opts = opts || {};
     var path = pathOf(col, id), url = BASE + "/" + ROOT + "/" + path + ".json";
     await waitFlushed(opts.flushMs || 8000);
-    var tries = opts.tries || 5;
+    var tries = opts.tries || 12; // v59: nhiều thiết bị cùng ghi một bản ghi → thử lại nhiều lần, giãn cách ngẫu nhiên để không đụng nhau mãi
     for (var n = 0; n < tries; n++) {
       var r;
       try { r = await fetch(url, { headers: { "X-Firebase-ETag": "true" } }); }
-      catch (e) { throw new Error("Cần kết nối mạng để thực hiện thao tác này (không đọc được dữ liệu mới nhất từ máy chủ)."); }
+      catch (e) { var e1 = new Error("Cần kết nối mạng để thực hiện thao tác này (không đọc được dữ liệu mới nhất từ máy chủ)."); e1.code = "network"; throw e1; }
       if (!r.ok) throw new Error("Máy chủ từ chối đọc dữ liệu (" + r.status + ")");
       var etag = r.headers && typeof r.headers.get === "function" ? r.headers.get("ETag") : null;
       if (!etag) { var ne = new Error("Máy chủ không trả về mã phiên bản (ETag) nên không thể ghi có điều kiện."); ne.code = "no-etag"; throw ne; } // trình duyệt chỉ đọc được ETag nếu máy chủ công khai qua CORS; nơi gọi sẽ tự lùi về đường giao dịch cũ
-      var cur = decodeDoc(await r.json());
+      var rawCur = await r.json();
+      var cur = decodeDoc(rawCur);
       var next = await mutator(cur);
       if (next === undefined || next === null) return { committed: false, doc: cur, retries: n };
       var json = JSON.stringify(sanitize(next));
       var w;
-      try { w = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", "if-match": etag }, body: JSON.stringify({ d: json, t: Date.now() }) }); }
-      catch (e) { throw new Error("Mất kết nối khi đang ghi — chưa có thay đổi nào được lưu. Hãy kiểm tra lại trạng thái đơn rồi thử lại."); }
-      if (w.status === 412) continue;
+      try { w = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json", "if-match": etag }, body: JSON.stringify({ d: json, t: Date.now(), v: ((rawCur && rawCur.v) || 0) + 1, by: curUser(), dev: DEV.id }) }); }
+      catch (e) { var e2 = new Error("Mất kết nối khi đang ghi — chưa có thay đổi nào được lưu. Hãy kiểm tra lại trạng thái đơn rồi thử lại."); e2.code = "network-write"; throw e2; }
+      if (w.status === 412) { await new Promise(function (r) { setTimeout(r, Math.random() * 25 * (n + 1)); }); continue; }
       if (!w.ok) throw new Error("Máy chủ từ chối ghi (" + w.status + ")");
       var colData = data[col] = data[col] || {};
       colData[id] = JSON.parse(json); raws[path] = json;
@@ -461,6 +676,7 @@ const FS = {
   scrap: "scrap",
   audit: "auditLog",
   attendance: "attendance",
+  schedule: "schedule",
   users: "users",
   certificates: "certificates"
 };

@@ -1,8 +1,8 @@
-/* Service Worker v57.
+/* Service Worker v59.
    - Mã ứng dụng (cùng nguồn): MẠNG TRƯỚC, cache dự phòng khi mất mạng → người dùng luôn nhận bản mới nhất khi có mạng.
    - Thư viện CDN (đã ghim đúng phiên bản): cache trước.
    - Bản mới KHÔNG tự thay thế giữa chừng khi đang nhập liệu: chờ người dùng bấm "Tải lại" trên thanh thông báo. */
-const V = 'mes-v57-tong-quan-trung-tam'; // đổi tên khi có bản mới để trình duyệt/TV tải lại toàn bộ mã
+const V = 'mes-v59-dong-bo-an-toan'; // đổi tên khi có bản mới để trình duyệt/TV tải lại toàn bộ mã
 const CDN = [
   'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js',
@@ -60,6 +60,9 @@ const APP = [
   './modules/downtime/downtime_mes.js',
   './modules/quality/quality.js',
   './modules/hr/hr.js',
+  './modules/hr/hr_people.js',
+  './modules/hr/hr_attendance.js',
+  './modules/hr/hr_schedule.js',
   './modules/reports/reports.js',
   './modules/reports/reports_plus.js',
   './modules/keotrung/keotrung.js',

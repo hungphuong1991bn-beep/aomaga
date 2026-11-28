@@ -70,6 +70,9 @@ function amgCheckWrite(user, col, op, docId, data) {
   switch (col) {
     case "users":
       return { ok: false, reason: "Chỉ quản trị viên được thay đổi tài khoản" };
+    case "schedule":
+      // Lịch làm việc (v58 GĐ3): chỉ Admin/Quản đốc (đã trả về ở trên) hoặc người có quyền sửa phân hệ Nhân sự
+      return amgCan(user, op === "delete" ? "x" : "s", "nhansu") ? { ok: true } : { ok: false, reason: "Chỉ người có quyền sửa Nhân sự được thay đổi lịch làm việc" };
     case "downtimeEvents":
       return op === "delete" ? { ok: false, reason: "Sổ lịch sử dừng máy không được xóa" } : { ok: true };
     case "downtimeSettings":

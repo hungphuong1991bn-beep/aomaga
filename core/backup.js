@@ -1,7 +1,7 @@
 /* ===================== SAO LƯU / XUẤT DỮ LIỆU (v45) =====================
    Xuất toàn bộ các bộ dữ liệu ra một tệp JSON để lưu trước mỗi lần nâng cấp. Chỉ đọc, không thay đổi dữ liệu.
    Không đưa trường "password" của tài khoản vào tệp sao lưu. */
-const AMG_BACKUP_COLLECTIONS = ["orders", "staff", "machines", "scrap", "auditLog", "attendance", "users", "certificates", "productionRuns", "productionEntries"];
+const AMG_BACKUP_COLLECTIONS = ["orders", "staff", "machines", "scrap", "auditLog", "attendance", "schedule", "users", "certificates", "productionRuns", "productionEntries"];
 function amgPlain(v) {
   if (v === null || v === undefined) return v;
   if (typeof v.toDate === "function") { try { return v.toDate().toISOString(); } catch (e) { return null; } }

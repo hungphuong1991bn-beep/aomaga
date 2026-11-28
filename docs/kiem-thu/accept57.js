@@ -218,7 +218,7 @@ async function refresh(){ const [machines,runs,orders]=await Promise.all([list('
     ok(/focus0\.status/.test(src('modules/orders/ordersboard.js'))&&/focus0\.stage/.test(src('modules/orders/ordersboard.js')));
     ok(/initialStatus/.test(src('modules/plan/command_center.js'))&&/initialStatus/.test(src('modules/plan/plan.js')));
     ok(/onNavigateFocus: navigateFocus,\s*\n\s*isAdmin/.test(src('modules/app/appinner.js')),'DashboardPage nhận onNavigateFocus');
-    const h=src('index.html'); ok(h.includes('domain/overview.js?v=57.0')&&h.includes('modules/dashboard/overview.js?v=57.0')); ok(src('sw.js').includes('modules/dashboard/overview.js'));
+    const h=src('index.html'); ok(h.includes('domain/overview.js?v=59.0')&&h.includes('modules/dashboard/overview.js?v=59.0')); ok(src('sw.js').includes('modules/dashboard/overview.js'));
   });
   console.log(out.join('\n')); console.log(`\n${pass} pass, ${fail} fail`);
   if(errs.length) console.log('console.error:',errs.slice(0,3));
